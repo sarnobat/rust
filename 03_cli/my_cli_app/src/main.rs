@@ -1,3 +1,4 @@
+use std::io::{self, BufRead};
 use clap::{App, Arg};
 
 fn main() {
@@ -28,5 +29,17 @@ fn main() {
 
     if matches.is_present("verbose") {
         println!("Verbose mode enabled");
+    }
+    let stdin = io::stdin();
+    for line in stdin.lock().lines() {
+        match line {
+            Ok(line) => {
+                println!("Read line: {}", line);
+            }
+            Err(error) => {
+                eprintln!("Error reading line: {}", error);
+                break; // Or handle the error differently
+            }
+        }
     }
 }
