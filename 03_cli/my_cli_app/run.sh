@@ -15,5 +15,6 @@ cargo new my_cli_app && cd my_cli_app
 cargo build
 ./target/debug/my_cli_app --help
 ./target/debug/my_cli_app -v -i input.txt
+find / | ./target/debug/my_cli_app -v -i input.txt | head
 EOF
 
