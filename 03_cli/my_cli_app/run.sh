@@ -13,6 +13,7 @@ echo "$0" >> ~/db.git/command_history.txt | ts >> ~/db.git/command_history_times
 cat <<EOF | batcat --style=plain --paging=never --language sh --theme TwoDark
 cargo new my_cli_app && cd my_cli_app
 cargo build
+cargo fmt
 ./target/debug/my_cli_app --help
 ./target/debug/my_cli_app -v -i input.txt
 find / | ./target/debug/my_cli_app -v -i input.txt | head

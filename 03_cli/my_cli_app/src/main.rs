@@ -1,5 +1,5 @@
-use std::io::{self, BufRead};
 use clap::{App, Arg};
+use std::io::{self, BufRead};
 
 fn main() {
     let matches = App::new("My CLI App")
@@ -25,7 +25,6 @@ fn main() {
 
     let input_file = matches.value_of("input").unwrap();
     println!("Input file: {}", input_file);
-
 
     if matches.is_present("verbose") {
         println!("Verbose mode enabled");
