@@ -1,6 +1,10 @@
 use std::io::{self, BufRead};
 
 fn main() {
+
+    ///
+    /// Iterate over stdin
+    ///
     let stdin = io::stdin();
     for line in stdin.lock().lines() {
         match line {
