@@ -3,7 +3,7 @@ use regex::Regex;
 use std::io::{self, BufRead};
 
 use clap::{Arg, Command};
-use std::process::Command;
+// use std::process::Command;
 
 fn main() {
     // 4) cli options
@@ -26,12 +26,12 @@ fn main() {
                 if line.trim() == "exit" {
                     break;
                 }
-                /// 1) Print to stdout
+                // 1) Print to stdout
                 println!("[debug] {}", line);
 
-                /// 3) Parse File path
+                // 3) Parse File path
 
-                /// 2) Regex capture groups extracted and read separately
+                // 2) Regex capture groups extracted and read separately
                 let re = Regex::new(r"^(?P<dir>.*/)?(?P<file>[^/]+?)\.(?P<ext>[^./]+)$").unwrap();
                 let path = line;
                 if let Some(caps) = re.captures(&path) {
@@ -44,8 +44,8 @@ fn main() {
                     println!("Extension: {}", ext);
                     // 5) Read and write to a map
 
-                    /// 6) Call a shell program instead
-                    let output = Command::new("date")
+                    // 6) Call a shell program instead
+                    let output = std::process::Command::new("date")
                         .arg("+%s")
                         .output()
                         .expect("Failed to execute command");
