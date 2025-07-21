@@ -3,6 +3,7 @@ use regex::Regex;
 use std::io::{self, BufRead};
 
 use clap::{Arg, Command};
+use std::process::Command;
 
 fn main() {
     // 4) cli options
@@ -41,27 +42,25 @@ fn main() {
                     println!("Directory: {}", dir);
                     println!("Filename: {}", file);
                     println!("Extension: {}", ext);
+                    // 5) Read and write to a map
 
-                    /// 5) Read and write to a map
+                    /// 6) Call a shell program instead
+                    let output = Command::new("date")
+                        .arg("+%s")
+                        .output()
+                        .expect("Failed to execute command");
+
+                    if output.status.success() {
+                        let stdout = String::from_utf8_lossy(&output.stdout);
+                        println!("Epoch seconds: {}", stdout.trim());
+                    } else {
+                        eprintln!("Command failed with status: {:?}", output.status);
+                    }
 
                     // 11) create json object
-
                 } else {
                     println!("No match");
-                    
-                    /// 6) Call a shell program instead
-                        let output = Command::new("date")
-        .arg("+%s")
-        .output()
-        .expect("Failed to execute command");
-
-    if output.status.success() {
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        println!("Epoch seconds: {}", stdout.trim());
-    } else {
-        eprintln!("Command failed with status: {:?}", output.status);
-    }
-
+                }
             }
             Err(err) => {
                 eprintln!("Error reading line: {}", err);
