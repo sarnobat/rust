@@ -2,6 +2,8 @@ use clap::{Arg, Command};
 use regex::Regex;
 use std::collections::HashMap;
 use std::io::{self, BufRead};
+// use std::fs;
+// use std::path::Path;
 
 fn main() {
     // 4) cli options
@@ -34,8 +36,8 @@ fn main() {
 
                 // 2) Regex capture groups extracted and read separately
                 let re = Regex::new(r"^(?P<dir>.*/)?(?P<file>[^/]+?)\.(?P<ext>[^./]+)$").unwrap();
-                let path = line;
-                if let Some(caps) = re.captures(&path) {
+                // let path = line;
+                if let Some(caps) = re.captures(&line) {
                     let dir = caps.name("dir").map_or("", |m| m.as_str()).to_string();
                     let file = caps.name("file").map_or("", |m| m.as_str());
                     let ext = caps.name("ext").map_or("", |m| m.as_str()).to_string();
@@ -45,7 +47,6 @@ fn main() {
                     println!("\tExtension: {}", ext);
 
                     // 5) Read and write to a map
-                    // let dir = dir_match.as_str().to_string();  // OWNED
                     *counts.entry(ext).or_insert(0) += 1;
 
                     println!("{:?}", counts);
