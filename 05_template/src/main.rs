@@ -1,3 +1,7 @@
+use std::io::{self, BufRead};
+
+
+// use std::io::stdin;
 use clap::{Command, Arg};
 // use std::process;
 
@@ -33,7 +37,24 @@ fn main() {
         println!("Debug mode is on");
     }
     println!("Hello ");
-// 
+   let stdin = io::stdin();
+    let handle = stdin.lock();
+
+    for line_result in handle.lines() {
+        match line_result {
+            Ok(line) => {
+                if line.trim() == "exit" {
+                    break;
+                }
+                println!("You typed: {}", line);
+            }
+            Err(err) => {
+                eprintln!("Error reading line: {}", err);
+                break;
+            }
+        }
+    }
+    // 
 //     if let Some(input) = matches.get_one::<String>("input") {
 //         println!("Using input: {}", input);
 //     }
