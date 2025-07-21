@@ -3,6 +3,7 @@ build:
 	cargo add regex
 	RUSTFLAGS="-D warnings" cargo build
 	cargo build --release
+	cargo fmt
 # 	cargo clean
 	cp target/debug/template template.darwin.dbg
 	cp target/release/template template.darwin

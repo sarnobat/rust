@@ -1,9 +1,7 @@
-use regex::Regex;
-
-use std::io::{self, BufRead};
-
 use clap::{Arg, Command};
-// use std::process::Command;
+use regex::Regex;
+use std::collections::HashMap;
+use std::io::{self, BufRead};
 
 fn main() {
     // 4) cli options
@@ -16,7 +14,8 @@ fn main() {
             println!("Debug mode is on");
         }
     }
-    // println!("Hello ");
+
+    let mut counts = HashMap::new();
 
     // 1) stdin loop (with optional file arg)
     let stdin = io::stdin();
@@ -37,14 +36,19 @@ fn main() {
                 let re = Regex::new(r"^(?P<dir>.*/)?(?P<file>[^/]+?)\.(?P<ext>[^./]+)$").unwrap();
                 let path = line;
                 if let Some(caps) = re.captures(&path) {
-                    let dir = caps.name("dir").map_or("", |m| m.as_str());
+                    let dir = caps.name("dir").map_or("", |m| m.as_str()).to_string();
                     let file = caps.name("file").map_or("", |m| m.as_str());
-                    let ext = caps.name("ext").map_or("", |m| m.as_str());
+                    let ext = caps.name("ext").map_or("", |m| m.as_str()).to_string();
 
                     println!("\tDirectory: {}", dir);
                     println!("\tFilename: {}", file);
                     println!("\tExtension: {}", ext);
+
                     // 5) Read and write to a map
+                    // let dir = dir_match.as_str().to_string();  // OWNED
+                    *counts.entry(ext).or_insert(0) += 1;
+
+                    println!("{:?}", counts);
 
                     // 6) Call a shell program instead
                     let output = std::process::Command::new("date")
