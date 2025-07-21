@@ -7,14 +7,16 @@ use clap::{Arg, Command};
 
 fn main() {
     // 4) cli options
-    let matches = Command::new("example")
-        .arg(Arg::new("debug").long("debug").help("Enable debug mode"))
-        .get_matches();
+    {
+        let matches = Command::new("example")
+            .arg(Arg::new("debug").long("debug").help("Enable debug mode"))
+            .get_matches();
 
-    if matches.contains_id("debug") {
-        println!("Debug mode is on");
+        if matches.contains_id("debug") {
+            println!("Debug mode is on");
+        }
     }
-    println!("Hello ");
+    // println!("Hello ");
 
     // 1) stdin loop (with optional file arg)
     let stdin = io::stdin();
