@@ -41,9 +41,9 @@ fn main() {
                     let file = caps.name("file").map_or("", |m| m.as_str());
                     let ext = caps.name("ext").map_or("", |m| m.as_str());
 
-                    println!("Directory: {}", dir);
-                    println!("Filename: {}", file);
-                    println!("Extension: {}", ext);
+                    println!("\tDirectory: {}", dir);
+                    println!("\tFilename: {}", file);
+                    println!("\tExtension: {}", ext);
                     // 5) Read and write to a map
 
                     // 6) Call a shell program instead
@@ -54,7 +54,7 @@ fn main() {
 
                     if output.status.success() {
                         let stdout = String::from_utf8_lossy(&output.stdout);
-                        println!("Epoch seconds: {}", stdout.trim());
+                        println!("\tEpoch seconds: {}", stdout.trim());
                     } else {
                         eprintln!("Command failed with status: {:?}", output.status);
                     }
