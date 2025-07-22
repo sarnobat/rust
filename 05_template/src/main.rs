@@ -1,9 +1,9 @@
 use clap::{Arg, Command};
 use regex::Regex;
 use std::collections::HashMap;
+use std::fs;
 use std::io::{self, BufRead};
-// use std::fs;
-// use std::path::Path;
+use std::path::Path;
 
 fn main() {
     // 4) cli options
@@ -33,6 +33,26 @@ fn main() {
                 println!("[debug] {}", line);
 
                 // 3) Parse File path
+                let path = Path::new(&line);
+
+                match fs::metadata(path) {
+                    Ok(metadata) => {
+                        println!("File size: {} bytes", metadata.len());
+
+                        if metadata.is_file() {
+                            println!("It's a file");
+                        } else if metadata.is_dir() {
+                            println!("It's a directory");
+                        }
+
+                        if let Ok(modified) = metadata.modified() {
+                            println!("Last modified: {:?}", modified);
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("Failed to get metadata: {}", e);
+                    }
+                }
 
                 // 2) Regex capture groups extracted and read separately
                 let re = Regex::new(r"^(?P<dir>.*/)?(?P<file>[^/]+?)\.(?P<ext>[^./]+)$").unwrap();
