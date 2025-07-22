@@ -8,5 +8,5 @@ build:
 	cp target/debug/template template.darwin.dbg
 	cp target/release/template template.darwin
 	rm -rfv target
-	find / | ./template.darwin
+	find / | RUST_BACKTRACE=1 ./template.darwin
 	

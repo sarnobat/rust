@@ -40,13 +40,9 @@ fn main() {
                         println!("File size: {} bytes", metadata.len());
 
                         if metadata.is_file() {
-                            println!("It's a file");
+                            println!("\tIt's a file");
                         } else if metadata.is_dir() {
-                            println!("It's a directory");
-                        }
-
-                        if let Ok(modified) = metadata.modified() {
-                            println!("Last modified: {:?}", modified);
+                            println!("\tIt's a directory");
                         }
                     }
                     Err(e) => {
