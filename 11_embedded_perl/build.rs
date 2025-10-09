@@ -1,5 +1,9 @@
 fn main() {
-    println!("cargo:rustc-link-search=native=/tmp/perl_static/lib/5.40.0/darwin-2level/CORE");
+    // Location of libperl.a
+    println!("cargo:rustc-link-search=native=/private/tmp/perl-5.40.0");
     println!("cargo:rustc-link-lib=static=perl");
-    println!("cargo:rustc-link-arg=-mmacosx-version-min=14.0");
+
+    // Perl headers
+    println!("cargo:include=/private/tmp/perl-5.40.0");
+    println!("cargo:rerun-if-changed=src/main.rs");
 }
