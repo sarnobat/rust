@@ -1,6 +1,0 @@
-# 3 nodes linked in a triangle
-
- [ Zwenkau ] -> [ Borna ]
- [ Borna ] -> [ Riesa ]
- [ Riesa ] -> [ Zwenkau ]
-

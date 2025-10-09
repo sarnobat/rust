@@ -1,3 +1,0 @@
-node { label: A; }
-
-[ B ] -> [ C ] { link: http://bloodgate.com; }

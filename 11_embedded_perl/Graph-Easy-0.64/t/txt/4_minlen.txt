@@ -1,3 +1,0 @@
-[ Berlin ] --> { minlen: 4; } [ Cottbus ]
-[ Berlin ] --> { minlen: 4; } [ Leipzig ]
-[ Berlin ] --> { minlen: 4; } [ Potsdam ]

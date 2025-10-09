@@ -1,5 +1,0 @@
-[ test ] { shape: edge; }
-
-[ A ] -- [ test ]
-[ C ] --> [ test ]
-[ test ] --> [ B ]

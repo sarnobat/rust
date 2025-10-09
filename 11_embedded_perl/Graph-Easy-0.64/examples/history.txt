@@ -1,6 +1,0 @@
- [ Bonn ] -> [ Berlin ] 
- [ Berlin ] -> [ Frankfurt ]
- [ Frankfurt ] -> [ Dresden ]
- [ Berlin ] -> [ Potsdam ]
- [ Potsdam ] -> [ Cottbus ] { border-color: red; }
- [ Cottbus ] -> [ Frankfurt ]

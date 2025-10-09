@@ -1,3 +1,0 @@
-graph { label: // digraph G {; }
-
-[ Kummersbach ] --> [ Düsburg ]

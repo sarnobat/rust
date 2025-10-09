@@ -1,3 +1,0 @@
-[ Adenau ] -> [ Monschau ]
-[ Monschau ] -> [ Monschau ]
-[ Nideggen ] -> [ Monschau ]

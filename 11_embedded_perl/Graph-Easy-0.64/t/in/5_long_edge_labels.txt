@@ -1,5 +1,0 @@
-
-[ A ] -> [ B ] -> [ C ] -> [ D ] -> [ E ]
-
-[ A ] -- very long edge label --> [ E ]
- -- another very long edge label --> [ A ]

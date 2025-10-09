@@ -1,2 +1,0 @@
-[ Bonn ] { border-style: dotted; }, [ Berlin ] { border-style: dashed; }
--- test --> [ Frankfurt ] { border-style: dot-dash; }

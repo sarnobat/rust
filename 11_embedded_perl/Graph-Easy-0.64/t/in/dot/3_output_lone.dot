@@ -1,5 +1,0 @@
-digraph G {
-  output = html;
-  c:w;		/* a node named "c" with port "w" */
-  a -> b;
-}

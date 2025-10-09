@@ -1,5 +1,0 @@
-digraph G {
-  a [ label = "a" /* color=red */ ]
-
-  a -> b;
-} /* digraph */   

@@ -1,2 +1,0 @@
-# quoting of () inside node
-[ Berlin ] -> [ Frankfurt \(Oder\) ] 

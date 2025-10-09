@@ -1,5 +1,0 @@
-edge { label: MyLabel; }
-edge.yes { label: Yes; }
-
-[ A ] --> { class: yes; } [ B ]
-[ B ] --> [ C ]

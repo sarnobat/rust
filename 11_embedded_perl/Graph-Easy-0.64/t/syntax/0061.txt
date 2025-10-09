@@ -1,2 +1,0 @@
-# Override the text of a node with the label attribute
-[ Bonn ] -> [ Berlin ] -> [ Bonn2 ] { label: Bonn; }

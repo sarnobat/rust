@@ -1,9 +1,0 @@
-edge { arrowstyle: filled; }
-graph {
-  colorscheme: x11;
-  flow: south;
-  title: G;
-}
-
-[ Compositor|  |Compose() ] { basename: Compositor; }
-

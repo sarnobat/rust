@@ -1,7 +1,0 @@
-+------------+  Drive         +------------+
-| Frankfurt  |  a car         |      Small |
-|    Oder    |  to            |  city near |
-| Flughafen- |  the           |          a |
-|  Terminal  |  destination   | beautyfull |
-|            | -------------> |      river |
-+------------+                +------------+

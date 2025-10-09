@@ -1,5 +1,0 @@
-( Test\n group
-
- [ Bonn ] -> [ Berlin ]
-
-)

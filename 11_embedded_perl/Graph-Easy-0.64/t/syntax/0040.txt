@@ -1,3 +1,0 @@
-# two unconnected parts of a graph
- [ Kiel ] -> [ Kassel ]
- [ Koblenz ] -> [ Konstanz ]

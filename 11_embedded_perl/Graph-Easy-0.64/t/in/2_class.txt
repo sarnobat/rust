@@ -1,3 +1,0 @@
-node.second { border: double; }
-
-[ A ] { class: SECOND; } --> [ B ] { class: Second; }

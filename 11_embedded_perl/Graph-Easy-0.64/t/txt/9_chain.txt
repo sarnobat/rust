@@ -1,8 +1,0 @@
-[ Bonn ] --> [ Berlin ]
-[ Berlin ] --> [ Koeln ]
-[ Berlin ] --> [ Cottbus ]
-[ Koeln ] --> [ Frankfurt ]
-[ Frankfurt ] --> [ Hannover ]
-[ Frankfurt ] --> [ Chemnitz ]
-[ Frankfurt ] --> [ Dresden ]
-[ Hannover ] --> [ Hamburg ]

@@ -1,8 +1,0 @@
-edge { arrowstyle: filled; }
-graph {
-  colorscheme: x11;
-  flow: south;
-  title: G;
-}
-
-[ Wolfsbüttel ] --> [ Köln ]

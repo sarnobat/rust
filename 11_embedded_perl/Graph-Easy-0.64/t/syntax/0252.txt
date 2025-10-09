@@ -1,3 +1,0 @@
-# A node-cluster (autosplit into three single nodes)
-[ Amrum | Sylt | Fehmarn ] { fill: #ddaaff; }
-  -> [ Itzehoe ]

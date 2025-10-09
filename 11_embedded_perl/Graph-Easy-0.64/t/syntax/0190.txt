@@ -1,2 +1,0 @@
-# no spaces
-[Kempten]{color:red;}->[Thurgau]{color:blue;}

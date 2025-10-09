@@ -1,6 +1,0 @@
-graph {
-  label: My Graph;
-  labelpos: top;
-}
-
-[ Regensburg ] --> [ Passau ]
