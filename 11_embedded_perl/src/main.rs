@@ -21,138 +21,120 @@ unsafe extern "C" {
     fn Perl_eval_pv(code: *const c_char, croak_on_error: i32) -> *mut c_void;
 }
 
-// ------------------------------------------------------------
-// Copy all Graph::Easy modules into /tmp for loading
-// ------------------------------------------------------------
-fn copy_graph_easy_modules() {
-    let src_root = Path::new("Graph-Easy-0.64/lib/Graph/Easy");
-    let dst_root = Path::new("/tmp/graph_easy_lib/Graph/Easy");
+// --- Stub PERL_SYS_INIT3 / PERL_SYS_TERM for static builds ---
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn PERL_SYS_INIT3(
+    _argc: *mut i32,
+    _argv: *mut *mut *mut i8,
+    _env: *mut *mut *mut i8,
+) {
+    println!("[stub] PERL_SYS_INIT3 called");
+}
 
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn PERL_SYS_TERM() {
+    println!("[stub] PERL_SYS_TERM called");
+}
+
+// ------------------------------------------------------------
+// Helper: recursively copy all .pm files from Graph-Easy into /tmp
+// ------------------------------------------------------------
+fn copy_graph_easy_modules() -> std::io::Result<()> {
+    let src_root = Path::new("Graph-Easy-0.64/lib/Graph/Easy");
     if !src_root.exists() {
         eprintln!("Source Graph::Easy path not found: {:?}", src_root);
         std::process::exit(1);
     }
 
-    fs::create_dir_all(dst_root).expect("failed to create /tmp/graph_easy_lib/Graph/Easy");
+    let dst_root = Path::new("/tmp/graph_easy_lib/Graph/Easy");
+    fs::create_dir_all(dst_root)?;
 
-    let mut copied = 0;
+    let mut count = 0;
     for entry in WalkDir::new(src_root) {
-        let entry = entry.expect("walkdir error");
+        let entry = entry?;
         if entry.file_type().is_file() {
             if let Some(ext) = entry.path().extension() {
                 if ext == "pm" {
                     let rel_path = entry.path().strip_prefix(src_root).unwrap();
                     let dst_path = dst_root.join(rel_path);
                     if let Some(parent) = dst_path.parent() {
-                        fs::create_dir_all(parent).unwrap();
+                        fs::create_dir_all(parent)?;
                     }
-                    fs::copy(entry.path(), &dst_path).unwrap();
-                    copied += 1;
+                    fs::copy(entry.path(), &dst_path)?;
+                    count += 1;
                 }
             }
         }
     }
-    println!("Copied {} Graph::Easy modules to /tmp/graph_easy_lib", copied);
+    println!("Copied {} Graph::Easy modules to /tmp/graph_easy_lib", count);
+    Ok(())
 }
 
-// Tiny helpers to eval code inside the embedded interpreter
-unsafe fn peval_raw(code: &str) {
-    let c = CString::new(code).unwrap();
-    let _ = Perl_eval_pv(c.as_ptr(), 0);
-}
-
+// ------------------------------------------------------------
+// Main program
+// ------------------------------------------------------------
 fn main() {
-    // 1) Copy modules to /tmp
-    copy_graph_easy_modules();
+    // Step 1: Copy Graph::Easy modules into /tmp
+    if let Err(e) = copy_graph_easy_modules() {
+        eprintln!("Error copying Graph::Easy modules: {}", e);
+        std::process::exit(1);
+    }
 
-    // 2) Paths we want in @INC
+    // Step 2: Set up PERL5LIB safely
     let core_lib = "/tmp/perl_static/lib/5.40.0";
     let graph_lib = "/tmp/graph_easy_lib";
-
-    if !Path::new(core_lib).exists() {
-        eprintln!("Core Perl lib path not found: {}", core_lib);
+    let perl5lib_value = format!("{}:{}", graph_lib, core_lib);
+    unsafe {
+        std::env::set_var("PERL5LIB", &perl5lib_value);
     }
-    if !Path::new(graph_lib).exists() {
-        eprintln!("Graph::Easy lib path not found: {}", graph_lib);
-    }
+    println!("PERL5LIB={}", perl5lib_value);
 
-    // 3) Start embedded Perl with -I flags to set @INC directly
-    // Equivalent of: perl -I/tmp/graph_easy_lib -I/tmp/perl_static/lib/5.40.0 -e 0
+    // Step 3: Initialize and run embedded Perl
     unsafe {
         let my_perl = perl_alloc();
         if my_perl.is_null() {
-            eprintln!("perl_alloc() returned null pointer");
+            eprintln!("perl_alloc() failed (null pointer)");
             std::process::exit(1);
         }
         perl_construct(my_perl);
 
-        let a0 = CString::new("perl").unwrap();
-        let a1 = CString::new("-I").unwrap();
-        let a2 = CString::new(graph_lib).unwrap();
-        let a3 = CString::new("-I").unwrap();
-        let a4 = CString::new(core_lib).unwrap();
-        let a5 = CString::new("-e").unwrap();
-        let a6 = CString::new("0").unwrap();
+        let arg0 = CString::new("perl").unwrap().into_raw();
+        let arg1 = CString::new("-I/tmp/graph_easy_lib").unwrap().into_raw();
+        let arg2 = CString::new("-I/tmp/perl_static/lib/5.40.0").unwrap().into_raw();
+        let arg3 = CString::new("-e").unwrap().into_raw();
+        let arg4 = CString::new("0").unwrap().into_raw();
+        let mut argv = [arg0, arg1, arg2, arg3, arg4, std::ptr::null_mut()];
 
-        let mut argv: [*mut c_char; 8] = [
-            a0.as_ptr() as *mut c_char,
-            a1.as_ptr() as *mut c_char,
-            a2.as_ptr() as *mut c_char,
-            a3.as_ptr() as *mut c_char,
-            a4.as_ptr() as *mut c_char,
-            a5.as_ptr() as *mut c_char,
-            a6.as_ptr() as *mut c_char,
-            std::ptr::null_mut(),
-        ];
-
-        println!("Calling perl_parse with -I {} and -I {}", graph_lib, core_lib);
-        let parse_result = perl_parse(my_perl, std::ptr::null_mut(), 7, argv.as_mut_ptr(), std::ptr::null_mut());
+        println!(
+            "Calling perl_parse with -I /tmp/graph_easy_lib and -I /tmp/perl_static/lib/5.40.0"
+        );
+        let parse_result =
+            perl_parse(my_perl, std::ptr::null_mut(), 5, argv.as_mut_ptr(), std::ptr::null_mut());
         println!("perl_parse() -> {}", parse_result);
+        if parse_result != 0 {
+            eprintln!("perl_parse() failed, aborting.");
+            std::process::exit(1);
+        }
 
-        println!("Running perl_run...");
         let run_result = perl_run(my_perl);
         println!("perl_run() -> {}", run_result);
 
-        // 4) Inspect @INC and Config from inside Perl (no env needed)
-        peval_raw(r#"print "Perl $]\n";"#);
-        peval_raw(r#"print "\@INC:\n", (map { "  $_\n" } @INC), "\n";"#);
-        peval_raw(
-            r#"
-            require Config;
-            print "Config: archname=", $Config::Config{archname},
-                  " usedl=", ($Config::Config{usedl}//""), 
-                  " useithreads=", ($Config::Config{useithreads}//""), "\n";
-        "#,
-        );
-
-        // 5) Ensure lib paths are active even if code later resets @INC
-        let use_lib_snip = format!(r#"use lib q({}), q({});"#, graph_lib, core_lib);
-        peval_raw(&use_lib_snip);
-
-        // 6) Try Graph::Easy
-        println!("Evaluating Graph::Easy demo...");
+        // Step 4: Evaluate a Perl script
         let code = CString::new(
             r#"
                 use Graph::Easy;
                 my $g = Graph::Easy->new();
                 $g->add_edge('Rust', 'Perl');
-                print "\n--- Graph::Easy ASCII ---\n";
                 print $g->as_ascii();
-                print "\n-------------------------\n";
             "#,
         )
         .unwrap();
-
         let eval_ptr = Perl_eval_pv(code.as_ptr(), 1);
         if eval_ptr.is_null() {
-            eprintln!("Perl_eval_pv() returned null (evaluation failed)");
-        } else {
-            println!("Perl_eval_pv() executed successfully");
+            eprintln!("Perl_eval_pv() returned NULL");
         }
 
-        println!("Destroying interpreter...");
         perl_destruct(my_perl);
         perl_free(my_perl);
-        println!("Interpreter shutdown complete");
     }
 }

@@ -13,6 +13,7 @@ embed: download
 	cd /private/tmp/perl-5.40.0 && \
 	sh Configure -des \
 		-Dprefix=/private/tmp/perl_static \
+		-Dperl_static_sysinit \
 		-Dusedl=false -Duseshrplib=false \
 		-Dstatic_ext='List/Util Data/Dumper Fcntl IO Encode Cwd re File/Glob' \
 		-Dcc=clang -Dld=clang \
