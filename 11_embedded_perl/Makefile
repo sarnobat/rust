@@ -1,0 +1,2 @@
+build:
+	MACOSX_DEPLOYMENT_TARGET=14.0 cargo run

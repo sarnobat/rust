@@ -1,7 +1,7 @@
 use std::ffi::CString;
 use std::os::raw::{c_char, c_int, c_void};
 
-extern "C" {
+unsafe extern "C" {
     // From perl.h / embed.h
     fn perl_alloc() -> *mut c_void;
     fn perl_construct(perl: *mut c_void);
@@ -17,7 +17,7 @@ extern "C" {
 
 fn main() {
     unsafe {
-        // Prepare args (mimics "perl -e 'print qq{Hello from embedded Perl\n}'")
+        // Equivalent of: perl -e "print qq{Hello from embedded Perl\n}"
         let prog = CString::new("perl").unwrap();
         let arg0 = prog.as_ptr() as *mut c_char;
         let arg1 = CString::new("-e").unwrap().into_raw();
@@ -26,7 +26,7 @@ fn main() {
 
         let my_perl = perl_alloc();
         if my_perl.is_null() {
-            eprintln!("Failed to allocate perl interpreter");
+            eprintln!("Failed to allocate Perl interpreter");
             return;
         }
         perl_construct(my_perl);
