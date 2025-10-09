@@ -1,4 +1,3 @@
-cargo:rustc-link-search=native=/opt/homebrew/opt/perl/lib/perl5/5.40/darwin-thread-multi-2level/CORE
+cargo:rustc-link-search=native=/tmp/perl_embed/lib/5.40.0/darwin-2level/CORE
 cargo:rustc-link-lib=dylib=perl
 cargo:rustc-link-arg=-mmacosx-version-min=14.0
-cargo:include=/opt/homebrew/opt/perl/lib/perl5/5.40/darwin-thread-multi-2level/CORE
