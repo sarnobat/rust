@@ -1,5 +1,11 @@
-# Build both CPU and GPU binaries and run them independently
 
+test:	build
+	# run both in parallel for 10 seconds
+	timeout 10s cargo run --release --bin cpu_increment | tee cpu_output.txt &
+	timeout 10s cargo run --release --bin gpu_increment  | tee gpu_output.txt &
+	wait
+
+# Build both CPU and GPU binaries
 all: cpu gpu
 
 cpu:
@@ -14,8 +20,3 @@ build:
 clean:
 	cargo clean
 
-test:
-	# run both in parallel for 10 seconds
-	timeout 10s cargo run --release --bin cpu_increment | tee cpu_output.txt &
-	timeout 10s cargo run --release --bin gpu_increment  | tee gpu_output.txt &
-	wait

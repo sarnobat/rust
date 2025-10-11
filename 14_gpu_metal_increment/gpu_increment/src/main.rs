@@ -7,7 +7,7 @@ fn main() {
     let queue = device.new_command_queue();
 
     // --- load shared Metal source file ---
-    let shader_src = fs::read_to_string("../incremental.metal")
+    let shader_src = fs::read_to_string("incremental.metal")
         .expect("Failed to read incremental.metal");
 
     let opts = CompileOptions::new();
