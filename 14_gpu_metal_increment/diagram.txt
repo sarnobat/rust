@@ -1,0 +1,40 @@
+                ┌──────────────────────────────┐
+                │          Rust Host           │
+                │  (cpu_increment / gpu_increment) 
+                └──────────────┬───────────────┘
+                               │
+                               │ Metal API Calls
+                               ▼
+                ┌──────────────────────────────┐
+                │      Metal Driver Layer      │
+                │  (macOS GPU runtime / IOKit) │
+                └──────────────┬───────────────┘
+                               │
+                               │ Command buffers, pipeline state
+                               ▼
+       ┌────────────────────────────────────────────────────────┐
+       │                     Apple GPU (M3 Max)                 │
+       │                                                        │
+       │  ┌──────────────┐    ┌──────────────┐    ┌────────────┐ │
+       │  │ Threadgroup  │    │ Threadgroup  │... │ Threadgroup│ │
+       │  │  of cores    │    │  of cores    │    │  of cores  │ │
+       │  └──────┬───────┘    └──────┬───────┘    └──────┬─────┘ │
+       │         │                   │                   │       │
+       │   ┌─────▼─────┐       ┌─────▼─────┐       ┌─────▼─────┐ │
+       │   │ SIMD unit │       │ SIMD unit │       │ SIMD unit │ │
+       │   └───────────┘       └───────────┘       └───────────┘ │
+       └────────────────────────────────────────────────────────┘
+                               │
+                               │ Unified memory interface
+                               ▼
+                ┌──────────────────────────────┐
+                │  Unified System Memory (RAM) │
+                │  • StorageModeShared buffer  │
+                │  • Visible to CPU + GPU      │
+                └──────────────┬───────────────┘
+                               │
+                               ▼
+                ┌──────────────────────────────┐
+                │         CPU Cores            │
+                │   (Rust logic, printing, I/O)│
+                └──────────────────────────────┘
