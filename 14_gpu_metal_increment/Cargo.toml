@@ -1,7 +1,2 @@
-[package]
-name = "metal_increment"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-metal = "0.28"
+[workspace]
+members = ["cpu_increment", "gpu_increment"]
