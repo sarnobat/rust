@@ -1,2 +1,2 @@
 [workspace]
-members = ["cpu_increment", "gpu_increment"]
+members = ["cpu_increment", "cpu_multithreaded_increment", "gpu_increment"]
