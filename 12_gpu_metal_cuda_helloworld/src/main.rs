@@ -4,8 +4,8 @@ fn main() {
     // ------------------------------------------------------------
     // 1. Create a Metal device and command queue
     // ------------------------------------------------------------
-    let device = Device::system_default().expect("❌ No Metal device available");
-    println!("✅ Using GPU: {}", device.name());
+    let device = Device::system_default().expect(" No Metal device available");
+    println!("Using GPU: {}", device.name());
     let queue = device.new_command_queue();
 
     // ------------------------------------------------------------
@@ -34,7 +34,7 @@ fn main() {
         .expect("compile Metal shader");
     let func = lib.get_function("hello", None).unwrap();
 
-    // ✅ FIX: use the `_with_function` variant here
+    // FIX: use the `_with_function` variant here
     let pso = device
         .new_compute_pipeline_state_with_function(&func)
         .expect("create pipeline");

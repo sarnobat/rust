@@ -15,8 +15,8 @@ fn main() {
     // ------------------------------------------------------------
     // 1. Initialize Metal device and command queue
     // ------------------------------------------------------------
-    let device = Device::system_default().expect("❌ No Metal device found");
-    println!("✅ Using GPU: {}", device.name());
+    let device = Device::system_default().expect("No Metal device found");
+    println!("Using GPU: {}", device.name());
     let queue = device.new_command_queue();
 
     // ------------------------------------------------------------
