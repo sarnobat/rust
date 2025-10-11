@@ -1,16 +1,16 @@
 use metal::*;
-use std::{mem, ptr, thread, time::Instant};
+use std::{mem, time::Instant};
 
 fn main() {
     // ------------------------------------------------------------
-    // 1. Setup Metal device and command queue
+    // 1. Setup Metal device and queue
     // ------------------------------------------------------------
     let device = Device::system_default().expect("No Metal device available");
     println!("Using GPU: {}", device.name());
     let queue = device.new_command_queue();
 
     // ------------------------------------------------------------
-    // 2. Metal shader source: increment each element by 1
+    // 2. Metal shader
     // ------------------------------------------------------------
     let shader_src = r#"
         #include <metal_stdlib>
@@ -24,9 +24,6 @@ fn main() {
         }
     "#;
 
-    // ------------------------------------------------------------
-    // 3. Compile shader and create pipeline
-    // ------------------------------------------------------------
     let opts = CompileOptions::new();
     let lib = device
         .new_library_with_source(shader_src, &opts)
@@ -37,7 +34,7 @@ fn main() {
         .expect("Failed to create pipeline");
 
     // ------------------------------------------------------------
-    // 4. Create large shared buffer
+    // 3. Shared buffer
     // ------------------------------------------------------------
     const COUNT: usize = 1_000_000;
     let mut data = vec![1_i32; COUNT];
@@ -48,15 +45,17 @@ fn main() {
     );
 
     // ------------------------------------------------------------
-    // 5. Infinite GPU dispatch loop
+    // 4. Infinite GPU loop with throughput counter
     // ------------------------------------------------------------
     let mut pass: u64 = 0;
+    let mut total_ops: u128 = 0;
+    let mut last_ops: u128 = 0;
     let mut last_report = Instant::now();
 
     loop {
         pass += 1;
+        total_ops += COUNT as u128;
 
-        // Launch GPU kernel
         let cmd_buf = queue.new_command_buffer();
         let enc = cmd_buf.new_compute_command_encoder();
         enc.set_compute_pipeline_state(&pso);
@@ -72,32 +71,32 @@ fn main() {
             height: 1,
             depth: 1,
         };
-
         enc.dispatch_threads(grid, tg);
         enc.end_encoding();
+
         cmd_buf.commit();
         cmd_buf.wait_until_completed();
 
-        // Periodically print progress (every 100 iterations)
+        // print every 100 passes
         if pass % 100 == 0 {
-            let elapsed = last_report.elapsed().as_micros();
-            last_report = Instant::now();
+            let elapsed = last_report.elapsed().as_secs_f64();
+            let ops_since = total_ops - last_ops;
+            let throughput = (ops_since as f64) / (elapsed * 1e6); // million ops/sec
 
             unsafe {
-                ptr::copy_nonoverlapping(buf.contents() as *const i32, data.as_mut_ptr(), COUNT);
+                let first = *(buf.contents() as *const i32);
+                println!(
+                    "Pass {:>8} | total {:>12} ops | +{:>12} since last | {:.2} M ops/s | first element = {}",
+                    pass,
+                    total_ops,
+                    ops_since,
+                    throughput,
+                    first
+                );
             }
 
-            let sample = data[0];
-            println!(
-                "Pass {:>8}: first element = {:>8}, avg time = {:>7.2} µs per pass",
-                pass,
-                sample,
-                elapsed as f64 / 100.0
-            );
+            last_report = Instant::now();
+            last_ops = total_ops;
         }
-
-        // Small sleep so printing doesn’t dominate runtime
-        // (remove this for max throughput)
-        // thread::sleep(std::time::Duration::from_millis(1));
     }
 }
