@@ -45,8 +45,7 @@ fn main() {
             let n = tuple[1].as_int()?;
             Ok(Value::Int(x.wrapping_shr(n as u32)))
         })),
-    )
-    .unwrap();
+    ).unwrap();
 
     ctx.set_function(
         "shl".into(),
@@ -56,8 +55,7 @@ fn main() {
             let n = tuple[1].as_int()?;
             Ok(Value::Int(x.wrapping_shl(n as u32)))
         })),
-    )
-    .unwrap();
+    ).unwrap();
 
     ctx.set_function(
         "xor".into(),
@@ -67,8 +65,7 @@ fn main() {
             let b = tuple[1].as_int()?;
             Ok(Value::Int(a ^ b))
         })),
-    )
-    .unwrap();
+    ).unwrap();
 
     // --- compile expression ---
     let parsed = build_operator_tree(&expr).expect("Failed to parse expression");
@@ -95,13 +92,14 @@ fn main() {
             }
         }
 
-        // print every ~0.25 seconds of wall time
+        // print every ~0.25 seconds
         if last_report.elapsed().as_secs_f64() > 0.25 {
             let elapsed = last_report.elapsed().as_secs_f64();
             let ops_since = total_ops - last_ops;
             let throughput = (ops_since as f64) / (elapsed * 1e6);
             println!(
-                "CPU pass {:>8} | total {:>15} ops | +{:>15} since last | {:>10.2} M ops/s | first element = {:>8}",
+                "{:<7} pass {:>8} | total {:>15} ops | +{:>15} since last | {:>10.2} M ops/s | first element = {:>8}",
+                "CPU",
                 pass,
                 total_ops,
                 ops_since,
@@ -112,7 +110,6 @@ fn main() {
             last_ops = total_ops;
         }
 
-        // stop after 10 seconds (for consistent GPU comparison)
         if start_time.elapsed() >= RUN_FOR {
             println!("\nReached 10-second limit, exiting.");
             break;

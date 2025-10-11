@@ -5,13 +5,11 @@ use rayon::prelude::*;
 
 fn main() {
     const COUNT: usize = 1_000_000;
-    const RUN_FOR: Duration = Duration::from_secs(10);  // run ~10 seconds
+    const RUN_FOR: Duration = Duration::from_secs(10);
 
-    // --- load shared Metal shader ---
     let shader_src = fs::read_to_string("incremental.metal")
         .expect("Failed to read incremental.metal");
 
-    // --- extract expression inside "data[tid] = ... ;" ---
     let expr_raw = shader_src
         .lines()
         .find_map(|line| line.split_once("data[tid] ="))
@@ -20,10 +18,8 @@ fn main() {
 
     println!("Loaded shader expression (Metal): {}", expr_raw);
 
-    // --- normalize Metal -> evalexpr syntax ---
     let mut expr = expr_raw.replace("data[tid]", "x");
 
-    // Convert bitwise ops (^, >>, <<) to function calls
     let re_xor = Regex::new(r"\(([^()]+)\)\s*\^\s*\(([^()]+)\)").unwrap();
     expr = re_xor.replace_all(&expr, "xor(\\1,\\2)").to_string();
 
@@ -35,7 +31,6 @@ fn main() {
 
     println!("Normalized expression for evalexpr: {}", expr);
 
-    // --- setup eval context with custom bitwise functions ---
     let mut base_ctx = HashMapContext::new();
 
     base_ctx.set_function(
@@ -68,10 +63,8 @@ fn main() {
         })),
     ).unwrap();
 
-    // --- compile expression once ---
     let parsed = build_operator_tree(&expr).expect("Failed to parse expression");
 
-    // --- simulation loop ---
     let mut data = vec![1_i64; COUNT];
     let mut pass: u64 = 0;
     let mut total_ops: u128 = 0;
@@ -89,7 +82,6 @@ fn main() {
         pass += 1;
         total_ops += COUNT as u128;
 
-        // run in parallel across all cores
         data.par_iter_mut().for_each(|v| {
             let mut ctx = base_ctx.clone();
             ctx.set_value("x".into(), Value::Int(*v)).unwrap();
@@ -98,13 +90,13 @@ fn main() {
             }
         });
 
-        // print every ~0.25 s of wall time
         if last_report.elapsed().as_secs_f64() > 0.25 {
             let elapsed = last_report.elapsed().as_secs_f64();
             let ops_since = total_ops - last_ops;
             let throughput = (ops_since as f64) / (elapsed * 1e6);
             println!(
-                "CPU-MT pass {:>8} | total {:>15} ops | +{:>15} since last | {:>10.2} M ops/s | first element = {:>8}",
+                "{:<7} pass {:>8} | total {:>15} ops | +{:>15} since last | {:>10.2} M ops/s | first element = {:>8}",
+                "CPU-MT",
                 pass,
                 total_ops,
                 ops_since,
