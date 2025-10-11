@@ -1,1 +1,39 @@
-Loaded shader expression: (data[tid] * 3 + 7) ^ (data[tid] >> 2)
+Loaded shader expression (Metal): (data[tid] * 3 + 7) ^ (data[tid] >> 2)
+Normalized expression for evalexpr: xor(\1,\2)
+Running CPU interpreter on 1000000 elements
+CPU pass        4 | total         4000000 ops | +        4000000 since last |      14.90 M ops/s | first element =        1
+CPU pass        8 | total         8000000 ops | +        4000000 since last |      15.36 M ops/s | first element =        1
+CPU pass       12 | total        12000000 ops | +        4000000 since last |      15.11 M ops/s | first element =        1
+CPU pass       16 | total        16000000 ops | +        4000000 since last |      15.61 M ops/s | first element =        1
+CPU pass       20 | total        20000000 ops | +        4000000 since last |      15.05 M ops/s | first element =        1
+CPU pass       24 | total        24000000 ops | +        4000000 since last |      15.01 M ops/s | first element =        1
+CPU pass       28 | total        28000000 ops | +        4000000 since last |      15.30 M ops/s | first element =        1
+CPU pass       32 | total        32000000 ops | +        4000000 since last |      15.01 M ops/s | first element =        1
+CPU pass       36 | total        36000000 ops | +        4000000 since last |      14.89 M ops/s | first element =        1
+CPU pass       40 | total        40000000 ops | +        4000000 since last |      15.26 M ops/s | first element =        1
+CPU pass       44 | total        44000000 ops | +        4000000 since last |      15.13 M ops/s | first element =        1
+CPU pass       48 | total        48000000 ops | +        4000000 since last |      15.57 M ops/s | first element =        1
+CPU pass       52 | total        52000000 ops | +        4000000 since last |      14.92 M ops/s | first element =        1
+CPU pass       56 | total        56000000 ops | +        4000000 since last |      15.26 M ops/s | first element =        1
+CPU pass       60 | total        60000000 ops | +        4000000 since last |      15.29 M ops/s | first element =        1
+CPU pass       64 | total        64000000 ops | +        4000000 since last |      15.27 M ops/s | first element =        1
+CPU pass       68 | total        68000000 ops | +        4000000 since last |      14.55 M ops/s | first element =        1
+CPU pass       72 | total        72000000 ops | +        4000000 since last |      15.20 M ops/s | first element =        1
+CPU pass       76 | total        76000000 ops | +        4000000 since last |      15.23 M ops/s | first element =        1
+CPU pass       80 | total        80000000 ops | +        4000000 since last |      15.06 M ops/s | first element =        1
+CPU pass       84 | total        84000000 ops | +        4000000 since last |      14.91 M ops/s | first element =        1
+CPU pass       88 | total        88000000 ops | +        4000000 since last |      15.26 M ops/s | first element =        1
+CPU pass       92 | total        92000000 ops | +        4000000 since last |      15.29 M ops/s | first element =        1
+CPU pass       96 | total        96000000 ops | +        4000000 since last |      15.29 M ops/s | first element =        1
+CPU pass      100 | total       100000000 ops | +        4000000 since last |      14.91 M ops/s | first element =        1
+CPU pass      104 | total       104000000 ops | +        4000000 since last |      15.06 M ops/s | first element =        1
+CPU pass      108 | total       108000000 ops | +        4000000 since last |      15.30 M ops/s | first element =        1
+CPU pass      112 | total       112000000 ops | +        4000000 since last |      15.28 M ops/s | first element =        1
+CPU pass      116 | total       116000000 ops | +        4000000 since last |      14.89 M ops/s | first element =        1
+CPU pass      120 | total       120000000 ops | +        4000000 since last |      15.26 M ops/s | first element =        1
+CPU pass      124 | total       124000000 ops | +        4000000 since last |      15.24 M ops/s | first element =        1
+CPU pass      128 | total       128000000 ops | +        4000000 since last |      15.25 M ops/s | first element =        1
+CPU pass      132 | total       132000000 ops | +        4000000 since last |      14.97 M ops/s | first element =        1
+CPU pass      136 | total       136000000 ops | +        4000000 since last |      15.10 M ops/s | first element =        1
+CPU pass      140 | total       140000000 ops | +        4000000 since last |      15.22 M ops/s | first element =        1
+CPU pass      144 | total       144000000 ops | +        4000000 since last |      15.00 M ops/s | first element =        1

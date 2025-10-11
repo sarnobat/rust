@@ -1,6 +1,9 @@
 [package]
 name = "cpu_multithreaded_increment"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
 
 [dependencies]
+evalexpr = "11"
+regex = "1"
+rayon = "1"
