@@ -14,7 +14,6 @@ fn main() {
         pass += 1;
         total_ops += COUNT as u128;
 
-        // Increment all elements on CPU
         for v in data.iter_mut() {
             *v += 1;
         }
@@ -22,10 +21,10 @@ fn main() {
         if pass % 100 == 0 {
             let elapsed = last_report.elapsed().as_secs_f64();
             let ops_since = total_ops - last_ops;
-            let throughput = (ops_since as f64) / (elapsed * 1e6); // M ops/sec
+            let throughput = (ops_since as f64) / (elapsed * 1e6);
 
             println!(
-                "CPU pass {:>8} | total {:>12} ops | +{:>12} since last | {:.2} M ops/s | first element = {}",
+                "CPU pass {:>8} | total {:>15} ops | +{:>15} since last | {:>10.2} M ops/s | first element = {:>8}",
                 pass,
                 total_ops,
                 ops_since,
