@@ -1,42 +1,24 @@
 use metal::*;
-use std::{mem, time::Instant};
+use std::{fs, mem, time::Instant};
 
 fn main() {
-    // ------------------------------------------------------------
-    // 1. Setup Metal device and queue
-    // ------------------------------------------------------------
     let device = Device::system_default().expect("No Metal device available");
     println!("Using GPU: {}", device.name());
     let queue = device.new_command_queue();
 
-    // ------------------------------------------------------------
-    // 2. Metal shader source
-    // ------------------------------------------------------------
-    let shader_src = r#"
-        #include <metal_stdlib>
-        using namespace metal;
+    // --- load shared Metal source file ---
+    let shader_src = fs::read_to_string("../incremental.metal")
+        .expect("Failed to read incremental.metal");
 
-        kernel void increment(device int *data [[buffer(0)]],
-                              uint  count [[threads_per_grid]],
-                              uint  tid   [[thread_position_in_grid]]) {
-            if (tid < count)
-                data[tid] += 1;
-        }
-    "#;
-
-    // Compile shader
     let opts = CompileOptions::new();
     let lib = device
-        .new_library_with_source(shader_src, &opts)
+        .new_library_with_source(&shader_src, &opts)
         .expect("Failed to compile Metal shader");
     let func = lib.get_function("increment", None).unwrap();
     let pso = device
         .new_compute_pipeline_state_with_function(&func)
         .expect("Failed to create pipeline");
 
-    // ------------------------------------------------------------
-    // 3. Create shared buffer (100 million integers = ~400 MB)
-    // ------------------------------------------------------------
     const COUNT: usize = 100_000_000;
     let mut data = vec![1_i32; COUNT];
     let buf = device.new_buffer_with_data(
@@ -45,9 +27,6 @@ fn main() {
         MTLResourceOptions::StorageModeShared,
     );
 
-    // ------------------------------------------------------------
-    // 4. Main loop with batched command buffers
-    // ------------------------------------------------------------
     let mut pass: u64 = 0;
     let mut total_ops: u128 = 0;
     let mut last_ops: u128 = 0;
@@ -56,7 +35,7 @@ fn main() {
     const BATCH_SIZE: usize = 10;
 
     loop {
-        let mut pending_buffers = Vec::with_capacity(BATCH_SIZE);
+        let mut pending = Vec::with_capacity(BATCH_SIZE);
 
         for _ in 0..BATCH_SIZE {
             pass += 1;
@@ -79,12 +58,12 @@ fn main() {
             };
             enc.dispatch_threads(grid, tg);
             enc.end_encoding();
-
             cmd_buf.commit();
-            pending_buffers.push(cmd_buf);
+
+            pending.push(cmd_buf);
         }
 
-        for cb in pending_buffers {
+        for cb in pending {
             cb.wait_until_completed();
         }
 
@@ -92,21 +71,15 @@ fn main() {
             let elapsed = last_report.elapsed().as_secs_f64();
             let ops_since = total_ops - last_ops;
             let throughput = (ops_since as f64) / (elapsed * 1e6);
-
             unsafe {
                 let first = *(buf.contents() as *const i32);
                 println!(
                     "GPU pass {:>8} | total {:>15} ops | +{:>15} since last | {:>10.2} M ops/s | first element = {:>8}",
-                    pass,
-                    total_ops,
-                    ops_since,
-                    throughput,
-                    first
+                    pass, total_ops, ops_since, throughput, first
                 );
             }
-
-            last_report = Instant::now();
             last_ops = total_ops;
+            last_report = Instant::now();
         }
     }
 }
