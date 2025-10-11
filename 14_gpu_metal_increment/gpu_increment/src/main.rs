@@ -1,5 +1,5 @@
 use metal::*;
-use std::time::{Instant, Duration};
+use std::time::{Duration, Instant};
 
 /*------------------------------------------------------------
   GPU Kernel Runner (Metal)
@@ -27,13 +27,13 @@ fn main() {
       Load and compile Metal shader file
     ---------------------------------*/
     let source = include_str!("../../incremental.metal");
-    let lib = device.new_library_with_source(source, &CompileOptions::new())
+    let lib = device
+        .new_library_with_source(source, &CompileOptions::new())
         .expect("Failed to compile Metal shader");
     let kernel = lib.get_function("increment", None).unwrap();
     let pipeline = device
-    .new_compute_pipeline_state_with_function(&kernel)
-    .expect("Failed to create compute pipeline state");
-
+        .new_compute_pipeline_state_with_function(&kernel)
+        .expect("Failed to create compute pipeline state");
 
     /*----------------------------
       Allocate and initialize data
@@ -44,11 +44,7 @@ fn main() {
     );
     let mut data = vec![1_i32; COUNT];
     unsafe {
-        std::ptr::copy_nonoverlapping(
-            data.as_ptr(),
-            buffer.contents() as *mut i32,
-            COUNT,
-        );
+        std::ptr::copy_nonoverlapping(data.as_ptr(), buffer.contents() as *mut i32, COUNT);
     }
 
     /*---------------------------------

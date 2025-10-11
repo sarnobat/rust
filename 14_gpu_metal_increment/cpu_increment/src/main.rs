@@ -1,14 +1,17 @@
-use std::{fs, time::{Instant, Duration}};
 use evalexpr::*;
 use regex::Regex;
+use std::{
+    fs,
+    time::{Duration, Instant},
+};
 
 fn main() {
     const COUNT: usize = 1_000_000;
-    const RUN_FOR: Duration = Duration::from_secs(10);  // run ~10 seconds
+    const RUN_FOR: Duration = Duration::from_secs(10); // run ~10 seconds
 
     // --- load shared Metal shader ---
-    let shader_src = fs::read_to_string("incremental.metal")
-        .expect("Failed to read incremental.metal");
+    let shader_src =
+        fs::read_to_string("incremental.metal").expect("Failed to read incremental.metal");
 
     // --- extract expression inside "data[tid] = ... ;" ---
     let expr_raw = shader_src
@@ -45,7 +48,8 @@ fn main() {
             let n = tuple[1].as_int()?;
             Ok(Value::Int(x.wrapping_shr(n as u32)))
         })),
-    ).unwrap();
+    )
+    .unwrap();
 
     ctx.set_function(
         "shl".into(),
@@ -55,7 +59,8 @@ fn main() {
             let n = tuple[1].as_int()?;
             Ok(Value::Int(x.wrapping_shl(n as u32)))
         })),
-    ).unwrap();
+    )
+    .unwrap();
 
     ctx.set_function(
         "xor".into(),
@@ -65,7 +70,8 @@ fn main() {
             let b = tuple[1].as_int()?;
             Ok(Value::Int(a ^ b))
         })),
-    ).unwrap();
+    )
+    .unwrap();
 
     // --- compile expression ---
     let parsed = build_operator_tree(&expr).expect("Failed to parse expression");

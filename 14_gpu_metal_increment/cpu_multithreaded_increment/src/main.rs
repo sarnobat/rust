@@ -1,7 +1,10 @@
-use std::{fs, time::{Instant, Duration}};
 use evalexpr::*;
-use regex::Regex;
 use rayon::prelude::*;
+use regex::Regex;
+use std::{
+    fs,
+    time::{Duration, Instant},
+};
 
 /*------------------------------------------------------------
   CPU Interpreter (Multi-Threaded)
@@ -16,8 +19,8 @@ fn main() {
     /*------------------------------
       Load shared Metal shader file
     ------------------------------*/
-    let shader_src = fs::read_to_string("incremental.metal")
-        .expect("Failed to read incremental.metal");
+    let shader_src =
+        fs::read_to_string("incremental.metal").expect("Failed to read incremental.metal");
 
     /*----------------------------------------------
       Extract expression inside "data[tid] = ... ;"
@@ -52,35 +55,41 @@ fn main() {
     ----------------------------------------*/
     let mut base_ctx = HashMapContext::new();
 
-    base_ctx.set_function(
-        "shr".into(),
-        Function::new(Box::new(|arg: &Value| {
-            let tuple = arg.as_tuple()?;
-            let x = tuple[0].as_int()?;
-            let n = tuple[1].as_int()?;
-            Ok(Value::Int(x.wrapping_shr(n as u32)))
-        })),
-    ).unwrap();
+    base_ctx
+        .set_function(
+            "shr".into(),
+            Function::new(Box::new(|arg: &Value| {
+                let tuple = arg.as_tuple()?;
+                let x = tuple[0].as_int()?;
+                let n = tuple[1].as_int()?;
+                Ok(Value::Int(x.wrapping_shr(n as u32)))
+            })),
+        )
+        .unwrap();
 
-    base_ctx.set_function(
-        "shl".into(),
-        Function::new(Box::new(|arg: &Value| {
-            let tuple = arg.as_tuple()?;
-            let x = tuple[0].as_int()?;
-            let n = tuple[1].as_int()?;
-            Ok(Value::Int(x.wrapping_shl(n as u32)))
-        })),
-    ).unwrap();
+    base_ctx
+        .set_function(
+            "shl".into(),
+            Function::new(Box::new(|arg: &Value| {
+                let tuple = arg.as_tuple()?;
+                let x = tuple[0].as_int()?;
+                let n = tuple[1].as_int()?;
+                Ok(Value::Int(x.wrapping_shl(n as u32)))
+            })),
+        )
+        .unwrap();
 
-    base_ctx.set_function(
-        "xor".into(),
-        Function::new(Box::new(|arg: &Value| {
-            let tuple = arg.as_tuple()?;
-            let a = tuple[0].as_int()?;
-            let b = tuple[1].as_int()?;
-            Ok(Value::Int(a ^ b))
-        })),
-    ).unwrap();
+    base_ctx
+        .set_function(
+            "xor".into(),
+            Function::new(Box::new(|arg: &Value| {
+                let tuple = arg.as_tuple()?;
+                let a = tuple[0].as_int()?;
+                let b = tuple[1].as_int()?;
+                Ok(Value::Int(a ^ b))
+            })),
+        )
+        .unwrap();
 
     /*----------------------------
       Compile the parsed program
