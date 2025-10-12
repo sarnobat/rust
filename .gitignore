@@ -1,5 +1,9 @@
 *.o
 *.bin
 .fingerprint
-/deps
+*/**/deps
 **/*.lock
+*.d
+target/debug/cargo*
+target/.rustc_info.json
+target/CACHEDIR.TAG
