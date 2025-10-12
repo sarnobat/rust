@@ -4,6 +4,8 @@
 */**/deps
 **/*.lock
 *.d
-target/debug/cargo*
-target/.rustc_info.json
+**/target/debug/.cargo-lock
+**/target/release/.cargo-lock
+**/target/CACHEDIR.TAG
+**/target/.rustc_info.json
 target/CACHEDIR.TAG
