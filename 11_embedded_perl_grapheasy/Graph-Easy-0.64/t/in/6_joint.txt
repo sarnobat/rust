@@ -1,4 +1,0 @@
-
-[ Hanau ], [ Hagen ], [ Hannover ], [ Hamburg ] --> { end: back, 0; } [ Bonn ]
-
- --> [ Prag ]

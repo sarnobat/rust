@@ -1,6 +1,0 @@
-[ Berlin ] { border: dashed; }
-[ Bonn ] { border: dashed; }
-[ Frankfurt ] { border: dot-dash; }
-
-[ Berlin ] -- test --> [ Frankfurt ]
-[ Bonn ] -- test --> [ Frankfurt ]

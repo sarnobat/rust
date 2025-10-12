@@ -1,5 +1,0 @@
-graph { flow: 270; }
-
-[ Start ] --> [ Main ]
-[ Main ] -- Until not done --> [ Main ]
-[ Main ] --> [ End ]

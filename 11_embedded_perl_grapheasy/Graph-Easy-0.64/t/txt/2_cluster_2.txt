@@ -1,5 +1,0 @@
-[ Altona ] { size: 3,2; }
-[ Hamburg ] { size: 2,2; }
-
-[ Hamburg ] --> [ Altona ]
-[ Hamburg ] --> [ Altona ]

@@ -1,2 +1,0 @@
- # This is a single-node graph with a comment:
- [ Bonn ]

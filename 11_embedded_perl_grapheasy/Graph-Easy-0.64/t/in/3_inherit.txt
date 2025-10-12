@@ -1,7 +1,0 @@
-node { align: left; }
-node.right { align: right; }
-graph { flow: down; }
-
-[ Left ] --> [ Lefty, too ] --> [ Right ]
-[ Left ], [ Lefty, too ] { class: none; }
-[ Right ] { class: right; }

@@ -1,4 +1,0 @@
-
-[ Aachen ], [ Cottbus ], [ Buxtehude ], [ Dachau ] 
- -- travel --> { end: back, 0 ; } 
-  [ Zittau ]

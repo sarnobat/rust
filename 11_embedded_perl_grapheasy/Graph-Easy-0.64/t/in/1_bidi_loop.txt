@@ -1,4 +1,0 @@
-[ Hamm ] <--> [ Hamm ]
-[ Hamm ] <--> [ Hamm ]
-[ Hamm ] <--> [ Hamm ]
-[ Hamm ] <--> [ Hamm ]

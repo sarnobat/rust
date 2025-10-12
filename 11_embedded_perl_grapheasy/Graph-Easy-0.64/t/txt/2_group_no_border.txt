@@ -1,6 +1,0 @@
-( Test\n group
-  [ Berlin ]
-  [ Bonn ]
-) { border: none; }
-
-[ Bonn ] --> [ Berlin ]

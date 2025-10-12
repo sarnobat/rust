@@ -1,8 +1,0 @@
-strict digraph G {
-  node [ pname=123, foo=9, bar=baz ]
-
-  node1 [ fname=o ]
-  node2 [ bar=zup ]
-
-  node1 -> node2 [ brabble=bramble ]
-}

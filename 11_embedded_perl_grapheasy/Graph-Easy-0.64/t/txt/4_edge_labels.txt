@@ -1,4 +1,0 @@
-[ Bonn ] == train ==> [ Berlin ]
-[ Bonn ] -- car --> [ Potsdam ]
-[ Berlin ] .. bus ..> [ Potsdam ]
-[ Berlin ] .- bike .-> [ Ulm ]

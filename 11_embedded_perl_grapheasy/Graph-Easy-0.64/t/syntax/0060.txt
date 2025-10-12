@@ -1,2 +1,0 @@
-# override attributes of only one node
-[ Bonn ] { color: red; } -> [ Berlin ]

@@ -1,9 +1,0 @@
-( Outer
-  ( Inner 1
-    [ A ] -> [ B ]
-  )
-  ( Inner 2
-    [ C ] -> [ D ]
-  )
-  [ E ] -> [ F ]
-)

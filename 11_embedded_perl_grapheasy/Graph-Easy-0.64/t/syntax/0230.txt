@@ -1,2 +1,0 @@
-# Something that follows on the same line
-    [ Ulm ] -> [ Lahn ] [ Lahn ] -> [ Trier ]

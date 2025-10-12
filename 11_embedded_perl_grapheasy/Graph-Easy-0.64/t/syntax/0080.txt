@@ -1,5 +1,0 @@
- node.city { color: brown; }
- [ Bonn ], [ Berlin ], [ Kassel ] { class: city; }
- 
- [ Bonn ] -> [ Berlin ]
- [ Kassel ] -> [ Berlin ]

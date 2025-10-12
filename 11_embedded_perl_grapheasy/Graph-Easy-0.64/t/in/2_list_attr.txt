@@ -1,1 +1,0 @@
-[ Bonn ] { border-style: dotted; }, [ Berlin ] { border-style: dashed; }

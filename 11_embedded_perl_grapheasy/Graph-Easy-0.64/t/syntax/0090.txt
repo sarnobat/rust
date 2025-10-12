@@ -1,2 +1,0 @@
-# a chain of nodes
-[ Bonn ] -> [ Berlin ] -> [ Wismar ]

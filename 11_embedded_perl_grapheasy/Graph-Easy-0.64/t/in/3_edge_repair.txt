@@ -1,4 +1,0 @@
-( Router: [ Input ] --> [ Output ] )
-
-[ Output ]        ==> { start: south; end: north; }
-[ Network ]

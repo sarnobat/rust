@@ -1,2 +1,0 @@
-[ A ] --> { start: front; } [ B ]
-[ A ] --> { start: front; } [ C ]
