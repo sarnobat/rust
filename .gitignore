@@ -1,0 +1,5 @@
+*.o
+*.bin
+.fingerprint
+/deps
+**/*.lock
