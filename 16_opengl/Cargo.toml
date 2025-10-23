@@ -12,3 +12,4 @@ gl = "0.14"
 
 # small convenience for error handling (optional)
 thiserror = "1.0"
+glow = "0.16.0"
