@@ -1,0 +1,15 @@
+[package]
+name = "helloopengl"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# window + GL context
+glutin = "0.28"
+
+# OpenGL function loader
+gl = "0.14"
+
+# small convenience for error handling (optional)
+thiserror = "1.0"
+glow = "0.16.0"
