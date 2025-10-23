@@ -1,77 +1,147 @@
-use glutin::{
-    event::{Event, WindowEvent},
-    event_loop::ControlFlow,
-};
-use glow::HasContext;
+use glfw::{Action, Context, Key};
+use std::env;
+use std::f32::consts::PI;
+
+use gl::types::*;
+use nalgebra::{Matrix4, Point3, Vector3};
+
+#[derive(Debug, serde::Deserialize)]
+struct Point {
+    x: f32,
+    y: f32,
+    z: f32,
+}
+
+fn read_csv(path: &str) -> Vec<Point> {
+    let mut rdr = csv::Reader::from_path(path).expect("Failed to open CSV");
+    rdr.deserialize()
+        .map(|r| r.expect("Bad CSV row"))
+        .collect()
+}
+
+fn draw_bounding_cube(x_min: f32, x_max: f32, y_min: f32, y_max: f32, z_min: f32, z_max: f32) {
+    unsafe {
+        gl::Color3f(1.0, 1.0, 1.0);
+        gl::Begin(gl::LINES);
+
+        let verts = [
+            (x_min, y_min, z_min, x_max, y_min, z_min),
+            (x_max, y_min, z_min, x_max, y_min, z_max),
+            (x_max, y_min, z_max, x_min, y_min, z_max),
+            (x_min, y_min, z_max, x_min, y_min, z_min),
+            (x_min, y_max, z_min, x_max, y_max, z_min),
+            (x_max, y_max, z_min, x_max, y_max, z_max),
+            (x_max, y_max, z_max, x_min, y_max, z_max),
+            (x_min, y_max, z_max, x_min, y_max, z_min),
+            (x_min, y_min, z_min, x_min, y_max, z_min),
+            (x_max, y_min, z_min, x_max, y_max, z_min),
+            (x_max, y_min, z_max, x_max, y_max, z_max),
+            (x_min, y_min, z_max, x_min, y_max, z_max),
+        ];
+
+        for &(x1, y1, z1, x2, y2, z2) in &verts {
+            gl::Vertex3f(x1, y1, z1);
+            gl::Vertex3f(x2, y2, z2);
+        }
+
+        gl::End();
+    }
+}
+
+fn draw_sphere(x: f32, y: f32, z: f32, radius: f32) {
+    unsafe {
+        gl::PushMatrix();
+        gl::Translatef(x, y, z);
+
+        // simple sphere approximation using glut-like parametric bands
+        let stacks = 16;
+        let slices = 16;
+        for i in 0..stacks {
+            let lat0 = PI * (-0.5 + (i as f32) / (stacks as f32));
+            let z0 = radius * lat0.sin();
+            let zr0 = radius * lat0.cos();
+
+            let lat1 = PI * (-0.5 + ((i + 1) as f32) / (stacks as f32));
+            let z1 = radius * lat1.sin();
+            let zr1 = radius * lat1.cos();
+
+            gl::Begin(gl::QUAD_STRIP);
+            for j in 0..=slices {
+                let lng = 2.0 * PI * (j as f32) / (slices as f32);
+                let x = lng.cos();
+                let y = lng.sin();
+
+                gl::Normal3f(x * zr0, y * zr0, z0);
+                gl::Vertex3f(x * zr0, y * zr0, z0);
+                gl::Normal3f(x * zr1, y * zr1, z1);
+                gl::Vertex3f(x * zr1, y * zr1, z1);
+            }
+            gl::End();
+        }
+
+        gl::PopMatrix();
+    }
+}
 
 fn main() {
-    let el = glutin::event_loop::EventLoop::new();
-    let wb = glutin::window::WindowBuilder::new()
-        .with_title("Rust OpenGL Triangle")
-        .with_inner_size(glutin::dpi::LogicalSize::new(800.0, 600.0));
-    let ctx = glutin::ContextBuilder::new()
-        .with_vsync(true)
-        .build_windowed(wb, &el)
-        .unwrap();
-    let ctx = unsafe { ctx.make_current().unwrap() };
-    let gl = unsafe { glow::Context::from_loader_function(|s| ctx.get_proc_address(s) as *const _) };
+    let args: Vec<String> = env::args().collect();
+    if args.len() < 2 {
+        eprintln!("Usage: {} <csv_file>", args[0]);
+        std::process::exit(1);
+    }
+    let data = read_csv(&args[1]);
 
-    // --- Shader setup ---
-    let vs_src = r#"#version 330 core
-        const vec2 verts[3] = vec2[3](
-            vec2( 0.0,  0.5),
-            vec2(-0.5, -0.5),
-            vec2( 0.5, -0.5)
-        );
-        void main() {
-            gl_Position = vec4(verts[gl_VertexID], 0.0, 1.0);
-        }"#;
+    let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
+    let (mut window, events) = glfw
+        .create_window(800, 600, "Rotating 3D Spheres", glfw::WindowMode::Windowed)
+        .expect("Failed to create window");
+    window.make_current();
+    window.set_key_polling(true);
 
-    let fs_src = r#"#version 330 core
-        out vec4 color;
-        void main() { color = vec4(0.9, 0.3, 0.2, 1.0); }"#;
+    gl::load_with(|s| window.get_proc_address(s) as *const _);
 
     unsafe {
-        let program = gl.create_program().unwrap();
+        gl::Enable(gl::DEPTH_TEST);
+        gl::ClearColor(0.1, 0.1, 0.1, 1.0);
+    }
 
-        let vs = gl.create_shader(glow::VERTEX_SHADER).unwrap();
-        gl.shader_source(vs, vs_src);
-        gl.compile_shader(vs);
-        assert!(gl.get_shader_compile_status(vs), "vertex shader failed");
+    let (x_min, x_max) = data.iter().map(|p| p.x).fold((f32::MAX, f32::MIN), |(a, b), v| (a.min(v), b.max(v)));
+    let (y_min, y_max) = data.iter().map(|p| p.y).fold((f32::MAX, f32::MIN), |(a, b), v| (a.min(v), b.max(v)));
+    let (z_min, z_max) = data.iter().map(|p| p.z).fold((f32::MAX, f32::MIN), |(a, b), v| (a.min(v), b.max(v)));
+    let (xc, yc, zc) = ((x_min + x_max)/2.0, (y_min + y_max)/2.0, (z_min + z_max)/2.0);
 
-        let fs = gl.create_shader(glow::FRAGMENT_SHADER).unwrap();
-        gl.shader_source(fs, fs_src);
-        gl.compile_shader(fs);
-        assert!(gl.get_shader_compile_status(fs), "fragment shader failed");
+    let mut angle = 0.0_f32;
 
-        gl.attach_shader(program, vs);
-        gl.attach_shader(program, fs);
-        gl.link_program(program);
-        assert!(gl.get_program_link_status(program), "link failed");
+    while !window.should_close() {
+        unsafe {
+            gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
+            gl::MatrixMode(gl::MODELVIEW);
+            gl::LoadIdentity();
 
-        gl.delete_shader(vs);
-        gl.delete_shader(fs);
+            // Simple camera
+            gl::Translatef(0.0, 0.0, -200.0);
+            gl::Rotatef(angle, 0.0, 1.0, 0.0);
 
-        // 🔧 FIX: Create and bind a dummy VAO
-        let vao = gl.create_vertex_array().unwrap();
-        gl.bind_vertex_array(Some(vao));
+            draw_bounding_cube(x_min, x_max, y_min, y_max, z_min, z_max);
 
-        el.run(move |event, _, control_flow| {
-            *control_flow = ControlFlow::Wait;
-            match event {
-                Event::MainEventsCleared => ctx.window().request_redraw(),
-                Event::RedrawRequested(_) => {
-                    gl.clear_color(0.1, 0.1, 0.12, 1.0);
-                    gl.clear(glow::COLOR_BUFFER_BIT);
-                    gl.use_program(Some(program));
-                    gl.draw_arrays(glow::TRIANGLES, 0, 3);
-                    ctx.swap_buffers().unwrap();
-                }
-                Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => {
-                    *control_flow = ControlFlow::Exit;
-                }
-                _ => (),
+            gl::Color3f(0.0, 0.6, 1.0);
+            for p in &data {
+                draw_sphere(p.x - xc, p.y - yc, p.z - zc, 1.0);
             }
-        });
+        }
+
+        angle += 0.5;
+        if angle > 360.0 {
+            angle -= 360.0;
+        }
+
+        window.swap_buffers();
+        glfw.poll_events();
+
+        for (_, event) in glfw::flush_messages(&events) {
+            if let glfw::WindowEvent::Key(Key::Escape, _, Action::Press, _) = event {
+                window.set_should_close(true);
+            }
+        }
     }
 }
