@@ -17,6 +17,16 @@ fn normalize(v: f64, old_min: f64, old_max: f64, new_min: f64, new_max: f64) -> 
     (v - old_min) / (old_max - old_min) * (new_max - new_min) + new_min
 }
 
+fn clamp(v: f64, min_v: f64, max_v: f64) -> f64 {
+    if v < min_v {
+        min_v
+    } else if v > max_v {
+        max_v
+    } else {
+        v
+    }
+}
+
 fn main() {
     let args: Vec<String> = env::args().collect();
     let include_nulls = args.iter().any(|a| a == "--include-nulls");
@@ -34,7 +44,7 @@ fn main() {
             continue;
         }
 
-        // Start of a JSON object
+        // Detect start of JSON object
         if line.trim_start().starts_with('{') {
             inside = true;
             buffer.clear();
@@ -45,7 +55,7 @@ fn main() {
             buffer.push('\n');
         }
 
-        // End of a JSON object
+        // Detect end of JSON object
         if line.trim_end().ends_with('}') && inside {
             inside = false;
             if let Ok(rec) = serde_json::from_str::<Record>(&buffer) {
@@ -67,9 +77,15 @@ fn main() {
 
                     if let Ok(dt) = DateTime::parse_from_str(&date_str, "%Y:%m:%d %H:%M:%S%:z") {
                         let year = dt.year() as f64;
+
+                        // Normalize x (longitude) and y (latitude)
                         let x = normalize(lon, -180.0, 180.0, -10.0, 10.0);
                         let y = normalize(lat, -90.0, 90.0, -10.0, 10.0);
-                        let z = normalize(year, 1950.0, 2050.0, -10.0, 10.0);
+
+                        // Clamp year outside 2010–2030
+                        let clamped_year = clamp(year, 2010.0, 2030.0);
+                        let z = normalize(clamped_year, 2010.0, 2030.0, -10.0, 10.0);
+
                         println!("{x:.3},{y:.3},{z:.3}");
                     }
                 }
