@@ -1,6 +1,7 @@
 use serde::Deserialize;
 use std::env;
-use std::io::{self, Read};
+use std::io::{self, BufRead};
+use chrono::{DateTime, FixedOffset, Datelike};
 
 #[derive(Deserialize, Debug)]
 struct Record {
@@ -9,39 +10,45 @@ struct Record {
     FileModifyDate: Option<String>,
 }
 
+fn normalize(v: f64, old_min: f64, old_max: f64, new_min: f64, new_max: f64) -> f64 {
+    if old_max == old_min {
+        return new_min;
+    }
+    (v - old_min) / (old_max - old_min) * (new_max - new_min) + new_min
+}
+
 fn main() {
-    // Check for CLI flag
-    let include_nulls = env::args().any(|arg| arg == "--include-nulls");
-
-    // Read all stdin
-    let mut input = String::new();
-    io::stdin().read_to_string(&mut input).unwrap();
-
-    // Split stream of JSON objects by "}\n{" (or similar)
-    let json_objects = input
-        .split("\n{")
-        .map(|chunk| {
-            let trimmed = chunk.trim();
-            if trimmed.is_empty() {
-                return None;
-            }
-            let mut s = trimmed.to_string();
-            if !s.starts_with('{') {
-                s.insert(0, '{');
-            }
-            if !s.ends_with('}') {
-                s.push('}');
-            }
-            Some(s)
-        })
-        .flatten();
+    let args: Vec<String> = env::args().collect();
+    let include_nulls = args.iter().any(|a| a == "--include-nulls");
+    let raw = args.iter().any(|a| a == "--raw");
 
     println!("x,y,z");
 
-    for obj in json_objects {
-        match serde_json::from_str::<Record>(&obj) {
-            Ok(rec) => {
-                // Skip rows with any nulls unless flag is given
+    let stdin = io::stdin();
+    let mut buffer = String::new();
+    let mut inside = false;
+
+    for line in stdin.lock().lines() {
+        let line = line.unwrap();
+        if line.trim().is_empty() {
+            continue;
+        }
+
+        // Start of a JSON object
+        if line.trim_start().starts_with('{') {
+            inside = true;
+            buffer.clear();
+        }
+
+        if inside {
+            buffer.push_str(&line);
+            buffer.push('\n');
+        }
+
+        // End of a JSON object
+        if line.trim_end().ends_with('}') && inside {
+            inside = false;
+            if let Ok(rec) = serde_json::from_str::<Record>(&buffer) {
                 if !include_nulls
                     && (rec.GPSLatitude.is_none()
                         || rec.GPSLongitude.is_none()
@@ -50,13 +57,23 @@ fn main() {
                     continue;
                 }
 
-                let lat = rec.GPSLatitude.map_or(String::new(), |v| v.to_string());
-                let lon = rec.GPSLongitude.map_or(String::new(), |v| v.to_string());
-                let date = rec.FileModifyDate.unwrap_or_default();
+                if let (Some(lat), Some(lon), Some(date_str)) =
+                    (rec.GPSLatitude, rec.GPSLongitude, rec.FileModifyDate)
+                {
+                    if raw {
+                        println!("{lat},{lon},{date_str}");
+                        continue;
+                    }
 
-                println!("{lat},{lon},{date}");
+                    if let Ok(dt) = DateTime::parse_from_str(&date_str, "%Y:%m:%d %H:%M:%S%:z") {
+                        let year = dt.year() as f64;
+                        let x = normalize(lon, -180.0, 180.0, -10.0, 10.0);
+                        let y = normalize(lat, -90.0, 90.0, -10.0, 10.0);
+                        let z = normalize(year, 1950.0, 2050.0, -10.0, 10.0);
+                        println!("{x:.3},{y:.3},{z:.3}");
+                    }
+                }
             }
-            Err(e) => eprintln!("Warning: failed to parse object: {e}"),
         }
     }
 }
