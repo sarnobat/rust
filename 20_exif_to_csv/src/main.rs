@@ -78,13 +78,15 @@ fn main() {
                     if let Ok(dt) = DateTime::parse_from_str(&date_str, "%Y:%m:%d %H:%M:%S%:z") {
                         let year = dt.year() as f64;
 
-                        // Normalize x (longitude) and y (latitude)
+                        // Normalize x (longitude), y (year/time), z (latitude)
                         let x = normalize(lon, -180.0, 180.0, -10.0, 10.0);
-                        let y = normalize(lat, -90.0, 90.0, -10.0, 10.0);
 
-                        // Clamp year outside 2010–2030
+                        // Year → vertical axis (y)
                         let clamped_year = clamp(year, 2010.0, 2030.0);
-                        let z = normalize(clamped_year, 2010.0, 2030.0, -10.0, 10.0);
+                        let y = normalize(clamped_year, 2010.0, 2030.0, -10.0, 10.0);
+
+                        // Latitude → depth (z)
+                        let z = normalize(lat, -90.0, 90.0, -10.0, 10.0);
 
                         println!("{x:.3},{y:.3},{z:.3}");
                     }
