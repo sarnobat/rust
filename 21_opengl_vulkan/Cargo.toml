@@ -1,6 +1,11 @@
 [package]
 name = "hellovulkan"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
 
 [dependencies]
+vulkano = "0.35.2"
+shaderc-sys = "0.10.1"
+vulkano-win = "0.33"
+winit = "0.28"
+bytemuck = "1.13"
