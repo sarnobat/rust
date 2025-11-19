@@ -24,8 +24,13 @@ fn main() {
     println!("Using device: {}", device.name());
 
     /*---------------------------------
+
+                SHADER
+    
       Load and compile Metal shader file
-    ---------------------------------*/
+
+      ---------------------------------*/
+
     let source = include_str!("../../incremental.metal");
     let lib = device
         .new_library_with_source(source, &CompileOptions::new())

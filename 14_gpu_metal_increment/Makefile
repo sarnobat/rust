@@ -1,9 +1,17 @@
+SECS := 2s
 
-test:	build
+# copy-paste friendly
+test:
+	timeout 2s ./cpu_increment.bin
+	timeout 2s ./cpu_multithreaded_increment.bin
+	timeout 2s ./gpu_increment.bin
+	wait
+
+test_uncompiled:	build
 	# run in parallel for 10 seconds
-	timeout 10s cargo run --release --bin cpu_increment | tee cpu_output.txt &
-	timeout 10s cargo run --release --bin cpu_multithreaded_increment | tee cpu__multithreaded_output.txt &
-	timeout 10s cargo run --release --bin gpu_increment  | tee gpu_output.txt &
+	timeout $(SECS) cargo run --release --bin cpu_increment | tee cpu_output.txt &
+	timeout $(SECS) cargo run --release --bin cpu_multithreaded_increment | tee cpu__multithreaded_output.txt &
+	timeout $(SECS) cargo run --release --bin gpu_increment  | tee gpu_output.txt &
 	wait
 
 all: cpu cpu_multithreaded gpu
