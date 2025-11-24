@@ -4,21 +4,31 @@ use std::env;
 
 fn main() {
     autoreleasepool(|| {
-        // Parse factor from command-line, default 3
+        // Python:
+        // device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
+        let device = Device::system_default().expect("No Metal device found");
+
+        // Python:
+        // command queue is implicit in PyTorch MPS backend
+        let command_queue = device.new_command_queue();
+
+        // Python:
+        // input_list = [...]
+        let input = vec![
+            0f32, 1., 0., 1., 1., 0., 0., 1.,
+            1., 1., 0., 0., 1., 0., 1., 0.
+        ];
+        let count = input.len();
+
+        // Python:
+        // factor = 3
         let args: Vec<String> = env::args().collect();
         let factor: f32 = args.get(1)
             .and_then(|s| s.parse().ok())
             .unwrap_or(3.0);
 
-        // Input array
-        let input = vec![0f32, 1., 1., 0., 1., 0., 1., 0.];
-        let count = input.len();
-
-        // Get GPU device and queue
-        let device = Device::system_default().expect("No Metal device found");
-        let command_queue = device.new_command_queue();
-
-        // Allocate Metal buffer for input/output
+        // Python:
+        // x = torch.tensor(input_list, dtype=torch.float32, device=device)
         let buffer = device.new_buffer(
             (count * std::mem::size_of::<f32>()) as u64,
             MTLResourceOptions::CPUCacheModeDefaultCache,
@@ -27,7 +37,8 @@ fn main() {
             std::ptr::copy_nonoverlapping(input.as_ptr(), buffer.contents() as *mut f32, count);
         }
 
-        // Allocate Metal buffer for factor
+        // Python:
+        // y = x * factor
         let factor_buf = device.new_buffer(
             std::mem::size_of::<f32>() as u64,
             MTLResourceOptions::CPUCacheModeDefaultCache,
@@ -36,7 +47,8 @@ fn main() {
             *(factor_buf.contents() as *mut f32) = factor;
         }
 
-        // Metal kernel as string
+        // Python:
+        // GPU kernel is implicit in PyTorch
         let kernel_src = r#"
         kernel void multiply(device float* data [[buffer(0)]],
                              device float* factor [[buffer(1)]],
@@ -49,13 +61,15 @@ fn main() {
         let function = library.get_function("multiply", None)
             .expect("Failed to get function");
 
-        // Compute pipeline
+        // Python:
+        // backend handles kernel compilation & pipeline
         let descriptor = ComputePipelineDescriptor::new();
         descriptor.set_compute_function(Some(&function));
         let pipeline = device.new_compute_pipeline_state(&descriptor)
             .expect("Failed to create pipeline");
 
-        // Encode commands
+        // Python:
+        // PyTorch runs the kernel under the hood
         let command_buffer = command_queue.new_command_buffer();
         let encoder = command_buffer.new_compute_command_encoder();
         encoder.set_compute_pipeline_state(&pipeline);
@@ -69,13 +83,16 @@ fn main() {
         command_buffer.commit();
         command_buffer.wait_until_completed();
 
-        // Copy result back
+        // Python:
+        // output_list = y.to("cpu").to(torch.int32).tolist()
         let mut output = vec![0f32; count];
         unsafe {
             std::ptr::copy_nonoverlapping(buffer.contents() as *const f32, output.as_mut_ptr(), count);
         }
 
-        // Print output without decimal places
+        // Python:
+        // print("Input: ", input_list)
+        // print("Output:", output_list)
         println!("Input: {:?}", input.iter().map(|x| *x as i32).collect::<Vec<_>>());
         println!("Factor: {}", factor as i32);
         println!("Output: {:?}", output.iter().map(|x| *x as i32).collect::<Vec<_>>());
