@@ -52,7 +52,7 @@ fn main() {
         gl.delete_shader(vs);
         gl.delete_shader(fs);
 
-        // 🔧 FIX: Create and bind a dummy VAO
+        // FIX: Create and bind a dummy VAO
         let vao = gl.create_vertex_array().unwrap();
         gl.bind_vertex_array(Some(vao));
 
