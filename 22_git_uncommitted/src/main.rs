@@ -4,7 +4,7 @@ use std::fs;
 use std::io::{self, BufRead};
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
-use std::sync::mpsc::{channel, Sender};
+use std::sync::mpsc::channel;
 use std::thread;
 use std::time::SystemTime;
 
@@ -27,7 +27,7 @@ const C_RESET: &str = "\x1b[0m";
 struct CacheEntry {
     head_mtime: u64,
     index_mtime: u64,
-    output: String,
+    line: String, // full formatted stdout line
 }
 
 type Cache = HashMap<String, CacheEntry>;
@@ -51,6 +51,12 @@ fn save_cache(cache: &Cache) {
     if let Ok(json) = serde_json::to_string_pretty(cache) {
         let _ = fs::write(path, json);
     }
+}
+
+/* cache key must include output-shaping options */
+fn cache_key(repo: &str, long_mode: bool, cols: usize) -> String {
+    // NUL separators keep it unambiguous even if repo contains spaces.
+    format!("{repo}\0{}\0{cols}", if long_mode { 1 } else { 0 })
 }
 
 /* ------------------------------------------------------------ */
@@ -111,30 +117,34 @@ fn has_unstaged_changes(repo: &str) -> bool {
 }
 
 fn branch_ahead_of_upstream(repo: &str) -> bool {
-    let out = match git_capture(
+    let out = git_capture(
         repo,
         &["rev-list", "--left-right", "--count", "@{u}...HEAD"],
-    ) {
-        Some(v) => v,
-        None => return false,
-    };
+    )
+    .unwrap_or_default();
 
     let mut it = out.split_whitespace();
     let _ = it.next();
-    let ahead = it.next().and_then(|v| v.parse::<u32>().ok()).unwrap_or(0);
-    ahead > 0
+    it.next()
+        .and_then(|v| v.parse::<u32>().ok())
+        .unwrap_or(0)
+        > 0
 }
 
 /* ------------------------------------------------------------ */
-/* OUTPUT BUILDING (EXPENSIVE)                                  */
+/* BUILD OUTPUT LINE                                            */
 /* ------------------------------------------------------------ */
 
-fn build_output(repo: &str, path_cols: usize) -> Option<String> {
+fn build_line(repo: &str, long_mode: bool, cols: usize) -> Option<String> {
     let dirty = has_unstaged_changes(repo);
     let ahead = branch_ahead_of_upstream(repo);
 
     if !dirty && !ahead {
         return None;
+    }
+
+    if !long_mode {
+        return Some(repo.to_string());
     }
 
     let log = git_capture(
@@ -168,10 +178,8 @@ fn build_output(repo: &str, path_cols: usize) -> Option<String> {
     ) {
         refs.extend(b.lines().map(|s| s.to_string()));
     }
-    if let Some(t) = git_capture(repo, &["tag", "--points-at", "HEAD"]) {
-        refs.extend(t.lines().map(|s| s.to_string()));
-    }
 
+    // path padded to cols (default 50)
     let mut line = format!(
         "{:<width$} {}{}{} {}{}{} {} {}{}{} {}{}{}",
         repo,
@@ -180,22 +188,50 @@ fn build_output(repo: &str, path_cols: usize) -> Option<String> {
         msg,
         C_MAGENTA, author, C_RESET,
         C_GREEN, format!("({})", refs.join(", ")), C_RESET,
-        width = path_cols
+        width = cols
     );
 
     if dirty {
         if let Some(status) = git_capture(repo, &["status", "--porcelain"]) {
             let (mut m, mut a, mut u) = (0, 0, 0);
             for l in status.lines() {
-                if l.starts_with("??") { u += 1; }
-                else if l.chars().nth(1) == Some('M') { m += 1; }
-                else if l.chars().nth(1) == Some('A') { a += 1; }
+                if l.starts_with("??") {
+                    u += 1;
+                } else if l.chars().nth(1) == Some('M') {
+                    m += 1;
+                } else if l.chars().nth(1) == Some('A') {
+                    a += 1;
+                }
             }
 
             let mut parts = Vec::new();
-            if m > 0 { parts.push(format!("{}M{} {} file{}", C_RED, C_RESET, m, if m == 1 { "" } else { "s" })); }
-            if a > 0 { parts.push(format!("{}A{} {} file{}", C_RED, C_RESET, a, if a == 1 { "" } else { "s" })); }
-            if u > 0 { parts.push(format!("{}??{} {} file{}", C_RED, C_RESET, u, if u == 1 { "" } else { "s" })); }
+            if m > 0 {
+                parts.push(format!(
+                    "{}M{} {} file{}",
+                    C_RED,
+                    C_RESET,
+                    m,
+                    if m == 1 { "" } else { "s" }
+                ));
+            }
+            if a > 0 {
+                parts.push(format!(
+                    "{}A{} {} file{}",
+                    C_RED,
+                    C_RESET,
+                    a,
+                    if a == 1 { "" } else { "s" }
+                ));
+            }
+            if u > 0 {
+                parts.push(format!(
+                    "{}??{} {} file{}",
+                    C_RED,
+                    C_RESET,
+                    u,
+                    if u == 1 { "" } else { "s" }
+                ));
+            }
 
             if !parts.is_empty() {
                 line.push_str("  ");
@@ -212,14 +248,19 @@ fn build_output(repo: &str, path_cols: usize) -> Option<String> {
 /* ------------------------------------------------------------ */
 
 fn main() {
-    let mut path_cols = 50;
+    let mut long_mode = false;
+    let mut cols: usize = 50;
 
     let mut args = env::args().skip(1).peekable();
     while let Some(a) = args.next() {
-        if a == "-c" || a == "--columns" {
-            if let Some(v) = args.next() {
-                path_cols = v.parse().unwrap_or(50);
+        match a.as_str() {
+            "-l" | "--long" => long_mode = true,
+            "-c" | "--columns" => {
+                if let Some(v) = args.next() {
+                    cols = v.parse().unwrap_or(50);
+                }
             }
+            _ => {}
         }
     }
 
@@ -227,25 +268,33 @@ fn main() {
     let repos: Vec<String> = stdin.lock().lines().flatten().collect();
 
     let cache = load_cache();
-    let (tx, rx) = channel::<(String, CacheEntry)>();
+    let (tx, rx) = channel::<CacheEntry>();
 
-    /* --------------------------------------------------------
-     * PRINTER THREAD (runs immediately)
-     * -------------------------------------------------------- */
+    /* printer thread (single writer) */
     let printer = thread::spawn(move || {
-        let mut new_cache = HashMap::new();
+        let mut new_cache: Cache = HashMap::new();
 
-        for (repo, entry) in rx {
-            println!("{}", entry.output);
-            new_cache.insert(repo, entry);
+        for entry in rx {
+            println!("{}", entry.line);
+            // cache key is embedded in the entry.line? no; we store via separate channel? we’ll store in cache in main thread instead.
+            // To keep the printer simple, main thread updates cache (see below).
+            // This branch is unused here.
+            drop(&mut new_cache);
         }
+    });
 
+    /* We update cache in main thread by collecting cache updates from workers (without blocking printing) */
+    let (ctx, crx) = channel::<(String, CacheEntry)>();
+
+    // Separate cache-updater thread (does not affect printing)
+    let cache_updater = thread::spawn(move || {
+        let mut new_cache = load_cache(); // start from existing cache
+        for (key, entry) in crx {
+            new_cache.insert(key, entry);
+        }
         save_cache(&new_cache);
     });
 
-    /* --------------------------------------------------------
-     * PARALLEL WORKERS
-     * -------------------------------------------------------- */
     repos.par_iter().for_each(|repo| {
         if !is_git_repo(repo) {
             return;
@@ -260,23 +309,32 @@ fn main() {
             None => return,
         };
 
-        if let Some(entry) = cache.get(repo) {
+        let key = cache_key(repo, long_mode, cols);
+
+        if let Some(entry) = cache.get(&key) {
             if entry.head_mtime == head_mt && entry.index_mtime == index_mt {
-                let _ = tx.send((repo.clone(), entry.clone()));
+                let _ = tx.send(entry.clone());
                 return;
             }
         }
 
-        if let Some(output) = build_output(repo, path_cols) {
-            let entry = CacheEntry {
-                head_mtime: head_mt,
-                index_mtime: index_mt,
-                output,
-            };
-            let _ = tx.send((repo.clone(), entry));
-        }
+        let line = match build_line(repo, long_mode, cols) {
+            Some(v) => v,
+            None => return,
+        };
+
+        let entry = CacheEntry {
+            head_mtime: head_mt,
+            index_mtime: index_mt,
+            line,
+        };
+
+        let _ = tx.send(entry.clone());
+        let _ = ctx.send((key, entry));
     });
 
     drop(tx);
+    drop(ctx);
     let _ = printer.join();
+    let _ = cache_updater.join();
 }
