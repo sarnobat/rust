@@ -15,7 +15,7 @@ test: build
 		/Volumes/git/github/* \
 		/Volumes/git/github/depot_parent/* \
 		/Volumes/git/2023/repos_personal.git/* \
-		| $(BIN) --long
+		| target/release/git-uncommitted --long
 
 clean:
 	$(CARGO) clean
