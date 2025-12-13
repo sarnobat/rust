@@ -317,7 +317,6 @@ fn main() {
 
     let (tx, rx) = channel::<(String, CacheEntry)>();
 
-    //let use_cache_for_printer = use_cache;
     let printer = thread::spawn(move || {
         if !use_cache {
             for (_, entry) in rx {
@@ -344,7 +343,7 @@ fn main() {
         let key = cache_key(repo, long_mode, cols);
 
         {
-        let now = now_secs();
+            let now = now_secs();
             let head_mt = match head_mtime(repo) {
                 Some(v) => v,
                 None => return,
