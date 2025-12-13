@@ -11,7 +11,7 @@ use std::time::SystemTime;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
-/* ANSI colors (git-like) */
+/* ANSI colors */
 const C_CYAN: &str = "\x1b[36m";
 const C_YELLOW: &str = "\x1b[33m";
 const C_MAGENTA: &str = "\x1b[35m";
@@ -19,16 +19,18 @@ const C_GREEN: &str = "\x1b[32m";
 const C_RED: &str = "\x1b[31m";
 const C_RESET: &str = "\x1b[0m";
 
-/* ------------------------------------------------------------ */
-/* CACHE                                                        */
-/* ------------------------------------------------------------ */
+/* ============================== CACHE ============================== */
 
 #[derive(Clone, Serialize, Deserialize)]
 struct CacheEntry {
     head_mtime: u64,
     index_mtime: u64,
     line: String,
+    #[serde(default)]
+    saved_at: u64,
 }
+
+const CACHE_TTL_SECS: u64 = 300; // 5 minutes
 
 type Cache = HashMap<String, CacheEntry>;
 
@@ -57,9 +59,7 @@ fn cache_key(repo: &str, long_mode: bool, cols: usize) -> String {
     format!("{}|{}|{}", repo, if long_mode { 1 } else { 0 }, cols)
 }
 
-/* ------------------------------------------------------------ */
-/* FS HELPERS                                                   */
-/* ------------------------------------------------------------ */
+/* ============================ FS HELPERS ============================ */
 
 fn mtime(path: &str) -> Option<u64> {
     fs::metadata(path)
@@ -79,13 +79,18 @@ fn index_mtime(repo: &str) -> Option<u64> {
     mtime(&format!("{}/.git/index", repo))
 }
 
+fn now_secs() -> u64 {
+    SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0)
+}
+
 fn is_git_repo(repo: &str) -> bool {
     fs::metadata(format!("{}/.git", repo)).is_ok()
 }
 
-/* ------------------------------------------------------------ */
-/* GIT HELPERS                                                  */
-/* ------------------------------------------------------------ */
+/* ============================ GIT HELPERS ============================ */
 
 fn git_capture(repo: &str, args: &[&str]) -> Option<String> {
     let out = Command::new("git")
@@ -114,19 +119,14 @@ fn has_unstaged_changes(repo: &str) -> bool {
     matches!(st, Ok(s) if s.code() == Some(1))
 }
 
-/*
- * Correct "ahead" logic:
- * HEAD is ahead of a remote branch iff:
- *   merge-base(HEAD, remote) == remote
- *   AND HEAD != remote
- */
+/* HEAD ahead-of-remote using merge-base correctness */
 fn branch_ahead_of_any_remote_same_branch(repo: &str) -> bool {
     let branch = match git_capture(repo, &["rev-parse", "--abbrev-ref", "HEAD"]) {
         Some(b) if b != "HEAD" => b,
         _ => return false,
     };
 
-    let refs = git_capture(
+    let remotes = git_capture(
         repo,
         &[
             "for-each-ref",
@@ -136,13 +136,13 @@ fn branch_ahead_of_any_remote_same_branch(repo: &str) -> bool {
     )
     .unwrap_or_default();
 
-    for remote_ref in refs.lines() {
-        let base = git_capture(repo, &["merge-base", "HEAD", remote_ref]);
-        let remote_oid = git_capture(repo, &["rev-parse", remote_ref]);
-        let head_oid = git_capture(repo, &["rev-parse", "HEAD"]);
+    for r in remotes.lines() {
+        let base = git_capture(repo, &["merge-base", "HEAD", r]);
+        let head = git_capture(repo, &["rev-parse", "HEAD"]);
+        let remote = git_capture(repo, &["rev-parse", r]);
 
-        if let (Some(base), Some(remote), Some(head)) = (base, remote_oid, head_oid) {
-            if base == remote && head != remote {
+        if let (Some(b), Some(h), Some(ro)) = (base, head, remote) {
+            if b == ro && h != ro {
                 return true;
             }
         }
@@ -151,9 +151,7 @@ fn branch_ahead_of_any_remote_same_branch(repo: &str) -> bool {
     false
 }
 
-/* ------------------------------------------------------------ */
-/* BUILD OUTPUT LINE                                            */
-/* ------------------------------------------------------------ */
+/* ========================== BUILD OUTPUT ============================ */
 
 fn build_line(repo: &str, long_mode: bool, cols: usize) -> Option<String> {
     let dirty = has_unstaged_changes(repo);
@@ -185,19 +183,49 @@ fn build_line(repo: &str, long_mode: bool, cols: usize) -> Option<String> {
     let msg = ma.next().unwrap_or("");
     let author = ma.next().unwrap_or("");
 
-    let mut refs = vec!["HEAD".to_string()];
-    if let Some(b) = git_capture(
+    /* -------- COLLECT REFS CORRECTLY -------- */
+
+    let mut refs = Vec::new();
+
+    // Direct refs (HEAD, local branches, tags)
+    if let Some(r) = git_capture(
         repo,
         &[
-            "branch",
-            "--all",
+            "for-each-ref",
             "--points-at",
             "HEAD",
             "--format=%(refname:short)",
         ],
     ) {
-        refs.extend(b.lines().map(|s| s.to_string()));
+        refs.extend(r.lines().map(|s| s.to_string()));
     }
+
+    // Remote-tracking branches equal to HEAD
+    if let Some(branch) = git_capture(repo, &["rev-parse", "--abbrev-ref", "HEAD"]) {
+        if branch != "HEAD" {
+            let head_oid = git_capture(repo, &["rev-parse", "HEAD"]);
+            if let Some(remotes) = git_capture(
+                repo,
+                &[
+                    "for-each-ref",
+                    "--format=%(refname)",
+                    &format!("refs/remotes/*/{}", branch),
+                ],
+            ) {
+                for r in remotes.lines() {
+                    let oid = git_capture(repo, &["rev-parse", r]);
+                    if oid == head_oid {
+                        if let Some(short) = r.strip_prefix("refs/remotes/") {
+                            refs.push(short.to_string());
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    refs.sort();
+    refs.dedup();
 
     let mut line = format!(
         "{:<width$} {}{}{} {}{}{} {} {}{}{} {}{}{}",
@@ -225,28 +253,13 @@ fn build_line(repo: &str, long_mode: bool, cols: usize) -> Option<String> {
 
             let mut parts = Vec::new();
             if m > 0 {
-                parts.push(format!(
-                    "{}M{} {} file{}",
-                    C_RED, C_RESET,
-                    m,
-                    if m == 1 { "" } else { "s" }
-                ));
+                parts.push(format!("{}M{} {} file{}", C_RED, C_RESET, m, if m == 1 { "" } else { "s" }));
             }
             if a > 0 {
-                parts.push(format!(
-                    "{}A{} {} file{}",
-                    C_RED, C_RESET,
-                    a,
-                    if a == 1 { "" } else { "s" }
-                ));
+                parts.push(format!("{}A{} {} file{}", C_RED, C_RESET, a, if a == 1 { "" } else { "s" }));
             }
             if u > 0 {
-                parts.push(format!(
-                    "{}??{} {} file{}",
-                    C_RED, C_RESET,
-                    u,
-                    if u == 1 { "" } else { "s" }
-                ));
+                parts.push(format!("{}??{} {} file{}", C_RED, C_RESET, u, if u == 1 { "" } else { "s" }));
             }
 
             if !parts.is_empty() {
@@ -259,13 +272,12 @@ fn build_line(repo: &str, long_mode: bool, cols: usize) -> Option<String> {
     Some(line)
 }
 
-/* ------------------------------------------------------------ */
-/* MAIN                                                         */
-/* ------------------------------------------------------------ */
+/* =============================== MAIN =============================== */
 
 fn main() {
     let mut long_mode = false;
     let mut cols: usize = 50;
+    let mut use_cache = true;
 
     let mut args = env::args().skip(1).peekable();
     while let Some(a) = args.next() {
@@ -276,6 +288,7 @@ fn main() {
                     cols = v.parse().unwrap_or(50);
                 }
             }
+            "--no-cache" => use_cache = false,
             _ => {}
         }
     }
@@ -283,10 +296,22 @@ fn main() {
     let stdin = io::stdin();
     let repos: Vec<String> = stdin.lock().lines().flatten().collect();
 
-    let cache = load_cache();
+    let cache = if use_cache {
+        load_cache()
+    } else {
+        HashMap::new()
+    };
     let (tx, rx) = channel::<(String, CacheEntry)>();
 
+    let use_cache_for_printer = use_cache;
     let printer = thread::spawn(move || {
+        if !use_cache_for_printer {
+            for (_, entry) in rx {
+                println!("{}", entry.line);
+            }
+            return;
+        }
+
         let mut new_cache = load_cache();
         for (key, entry) in rx {
             println!("{}", entry.line);
@@ -295,6 +320,7 @@ fn main() {
         save_cache(&new_cache);
     });
 
+    let use_cache_for_workers = use_cache;
     repos.par_iter().for_each(|repo| {
         if !is_git_repo(repo) {
             return;
@@ -310,11 +336,15 @@ fn main() {
         };
 
         let key = cache_key(repo, long_mode, cols);
+        let now = now_secs();
 
-        if let Some(entry) = cache.get(&key) {
-            if entry.head_mtime == head_mt && entry.index_mtime == index_mt {
-                let _ = tx.send((key, entry.clone()));
-                return;
+        if use_cache_for_workers {
+            if let Some(entry) = cache.get(&key) {
+                let fresh = now.saturating_sub(entry.saved_at) <= CACHE_TTL_SECS;
+                if fresh && entry.head_mtime == head_mt && entry.index_mtime == index_mt {
+                    let _ = tx.send((key, entry.clone()));
+                    return;
+                }
             }
         }
 
@@ -327,6 +357,7 @@ fn main() {
             head_mtime: head_mt,
             index_mtime: index_mt,
             line,
+            saved_at: now,
         };
 
         let _ = tx.send((key, entry));

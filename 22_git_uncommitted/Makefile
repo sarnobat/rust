@@ -15,7 +15,7 @@ test: build
 		/Volumes/git/github/* \
 		/Volumes/git/github/depot_parent/* \
 		/Volumes/git/2023/repos_personal.git/* \
-		| target/release/git-uncommitted | tee /tmp/git_uncommitted.txt | target/release/git-uncommitted --long | tee /tmp/git_uncommitted.log
+		| target/release/git-uncommitted | tee /tmp/git_uncommitted.txt | target/release/git-uncommitted --no-cache --long | tee /tmp/git_uncommitted.log
 
 clean:
 	$(CARGO) clean
