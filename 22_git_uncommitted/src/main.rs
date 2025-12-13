@@ -293,9 +293,6 @@ fn main() {
         }
     }
 
-    let stdin = io::stdin();
-    let repos: Vec<String> = stdin.lock().lines().flatten().collect();
-
     let cache = if use_cache {
         load_cache()
     } else {
@@ -321,6 +318,9 @@ fn main() {
     });
 
     let use_cache_for_workers = use_cache;
+
+    let stdin = io::stdin();
+    let repos: Vec<String> = stdin.lock().lines().flatten().collect();
     repos.par_iter().for_each(|repo| {
         if !is_git_repo(repo) {
             return;
