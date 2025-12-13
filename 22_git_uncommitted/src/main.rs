@@ -167,12 +167,7 @@ fn build_line(repo: &str, long_mode: bool, cols: usize) -> Option<String> {
 
     let log = git_capture(
         repo,
-        &[
-            "log",
-            "-1",
-            "--date=short",
-            "--pretty=format:%h %cd %s|%an",
-        ],
+        &["log", "-1", "--date=short", "--pretty=format:%h %cd %s|%an"],
     )?;
 
     let mut p = log.splitn(3, ' ');
@@ -230,11 +225,19 @@ fn build_line(repo: &str, long_mode: bool, cols: usize) -> Option<String> {
     let mut line = format!(
         "{:<width$} {}{}{} {}{}{} {} {}{}{} {}{}{}",
         repo,
-        C_CYAN, hash, C_RESET,
-        C_YELLOW, date, C_RESET,
+        C_CYAN,
+        hash,
+        C_RESET,
+        C_YELLOW,
+        date,
+        C_RESET,
         msg,
-        C_MAGENTA, author, C_RESET,
-        C_GREEN, format!("({})", refs.join(", ")), C_RESET,
+        C_MAGENTA,
+        author,
+        C_RESET,
+        C_GREEN,
+        format!("({})", refs.join(", ")),
+        C_RESET,
         width = cols
     );
 
@@ -253,13 +256,31 @@ fn build_line(repo: &str, long_mode: bool, cols: usize) -> Option<String> {
 
             let mut parts = Vec::new();
             if m > 0 {
-                parts.push(format!("{}M{} {} file{}", C_RED, C_RESET, m, if m == 1 { "" } else { "s" }));
+                parts.push(format!(
+                    "{}M{} {} file{}",
+                    C_RED,
+                    C_RESET,
+                    m,
+                    if m == 1 { "" } else { "s" }
+                ));
             }
             if a > 0 {
-                parts.push(format!("{}A{} {} file{}", C_RED, C_RESET, a, if a == 1 { "" } else { "s" }));
+                parts.push(format!(
+                    "{}A{} {} file{}",
+                    C_RED,
+                    C_RESET,
+                    a,
+                    if a == 1 { "" } else { "s" }
+                ));
             }
             if u > 0 {
-                parts.push(format!("{}??{} {} file{}", C_RED, C_RESET, u, if u == 1 { "" } else { "s" }));
+                parts.push(format!(
+                    "{}??{} {} file{}",
+                    C_RED,
+                    C_RESET,
+                    u,
+                    if u == 1 { "" } else { "s" }
+                ));
             }
 
             if !parts.is_empty() {
@@ -278,31 +299,27 @@ fn main() {
     let mut long_mode = false;
     let mut cols: usize = 50;
     let mut use_cache = true;
-
-    let mut args = env::args().skip(1).peekable();
-    while let Some(a) = args.next() {
-        match a.as_str() {
-            "-l" | "--long" => long_mode = true,
-            "-c" | "--columns" => {
-                if let Some(v) = args.next() {
-                    cols = v.parse().unwrap_or(50);
+    {
+        let mut args = env::args().skip(1).peekable();
+        while let Some(a) = args.next() {
+            match a.as_str() {
+                "-l" | "--long" => long_mode = true,
+                "-c" | "--columns" => {
+                    if let Some(v) = args.next() {
+                        cols = v.parse().unwrap_or(50);
+                    }
                 }
+                "--no-cache" => use_cache = false,
+                _ => {}
             }
-            "--no-cache" => use_cache = false,
-            _ => {}
         }
     }
 
-    let cache = if use_cache {
-        load_cache()
-    } else {
-        HashMap::new()
-    };
     let (tx, rx) = channel::<(String, CacheEntry)>();
 
-    let use_cache_for_printer = use_cache;
+    //let use_cache_for_printer = use_cache;
     let printer = thread::spawn(move || {
-        if !use_cache_for_printer {
+        if !use_cache {
             for (_, entry) in rx {
                 println!("{}", entry.line);
             }
@@ -317,8 +334,6 @@ fn main() {
         save_cache(&new_cache);
     });
 
-    let use_cache_for_workers = use_cache;
-
     let stdin = io::stdin();
     let repos: Vec<String> = stdin.lock().lines().flatten().collect();
     repos.par_iter().for_each(|repo| {
@@ -326,41 +341,50 @@ fn main() {
             return;
         }
 
-        let head_mt = match head_mtime(repo) {
-            Some(v) => v,
-            None => return,
-        };
-        let index_mt = match index_mtime(repo) {
-            Some(v) => v,
-            None => return,
-        };
-
         let key = cache_key(repo, long_mode, cols);
-        let now = now_secs();
 
-        if use_cache_for_workers {
-            if let Some(entry) = cache.get(&key) {
-                let fresh = now.saturating_sub(entry.saved_at) <= CACHE_TTL_SECS;
-                if fresh && entry.head_mtime == head_mt && entry.index_mtime == index_mt {
-                    let _ = tx.send((key, entry.clone()));
-                    return;
+        {
+        let now = now_secs();
+            let head_mt = match head_mtime(repo) {
+                Some(v) => v,
+                None => return,
+            };
+            let index_mt = match index_mtime(repo) {
+                Some(v) => v,
+                None => return,
+            };
+            if use_cache {
+                let cache = if use_cache {
+                    load_cache()
+                } else {
+                    HashMap::new()
+                };
+                if let Some(entry) = cache.get(&key) {
+                    let fresh = now.saturating_sub(entry.saved_at) <= CACHE_TTL_SECS;
+                    if fresh && entry.head_mtime == head_mt && entry.index_mtime == index_mt {
+                        let _ = tx.send((key, entry.clone()));
+                        return;
+                    }
                 }
             }
+
+            let entry;
+            {
+                let line = match build_line(repo, long_mode, cols) {
+                    Some(v) => v,
+                    None => return,
+                };
+
+                entry = CacheEntry {
+                    head_mtime: head_mt,
+                    index_mtime: index_mt,
+                    line,
+                    saved_at: now,
+                };
+
+                let _ = tx.send((key, entry));
+            }
         }
-
-        let line = match build_line(repo, long_mode, cols) {
-            Some(v) => v,
-            None => return,
-        };
-
-        let entry = CacheEntry {
-            head_mtime: head_mt,
-            index_mtime: index_mt,
-            line,
-            saved_at: now,
-        };
-
-        let _ = tx.send((key, entry));
     });
 
     drop(tx);
