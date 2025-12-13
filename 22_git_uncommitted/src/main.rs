@@ -117,21 +117,27 @@ fn main() {
                 }
             }
 
-            let entry;
+            
             {
+                //
+                // Main part: build the output line
+                //
                 let line = match build_line(repo, long_mode, cols) {
                     Some(v) => v,
                     None => return,
                 };
 
-                entry = CacheEntry {
-                    head_mtime: head_mt,
-                    index_mtime: index_mt,
-                    line,
-                    saved_at: now,
-                };
+                // send the entry to the printer thread (it will get cached)
+                {
+                    let entry = CacheEntry {
+                        head_mtime: head_mt,
+                        index_mtime: index_mt,
+                        line,
+                        saved_at: now,
+                    };
 
-                let _ = tx.send((key, entry));
+                    let _ = tx.send((key, entry));
+                }
             }
         }
     });
