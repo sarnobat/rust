@@ -11,7 +11,7 @@ use std::time::SystemTime;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
-/* ANSI colors (git-like) */
+// ANSI colors (git-like)
 const C_CYAN: &str = "\x1b[36m";
 const C_YELLOW: &str = "\x1b[33m";
 const C_MAGENTA: &str = "\x1b[35m";
@@ -19,9 +19,9 @@ const C_GREEN: &str = "\x1b[32m";
 const C_RED: &str = "\x1b[31m";
 const C_RESET: &str = "\x1b[0m";
 
-/* ------------------------------------------------------------ */
-/* CACHE                                                        */
-/* ------------------------------------------------------------ */
+// ------------------------------------------------------------
+// CACHE
+// ------------------------------------------------------------
 
 #[derive(Clone, Serialize, Deserialize)]
 struct CacheEntry {
@@ -53,15 +53,14 @@ fn save_cache(cache: &Cache) {
     }
 }
 
-/* cache key must include output-shaping options */
+// Cache key includes output-shaping options so -l / -c changes don't reuse stale lines.
 fn cache_key(repo: &str, long_mode: bool, cols: usize) -> String {
-    // NUL separators keep it unambiguous even if repo contains spaces.
-    format!("{repo}\0{}\0{cols}", if long_mode { 1 } else { 0 })
+    format!("{}|{}|{}", repo, if long_mode { 1 } else { 0 }, cols)
 }
 
-/* ------------------------------------------------------------ */
-/* FS HELPERS (NO GIT)                                          */
-/* ------------------------------------------------------------ */
+// ------------------------------------------------------------
+// FS HELPERS (NO GIT)
+// ------------------------------------------------------------
 
 fn mtime(path: &str) -> Option<u64> {
     fs::metadata(path)
@@ -85,9 +84,9 @@ fn is_git_repo(repo: &str) -> bool {
     fs::metadata(format!("{}/.git", repo)).is_ok()
 }
 
-/* ------------------------------------------------------------ */
-/* GIT HELPERS                                                  */
-/* ------------------------------------------------------------ */
+// ------------------------------------------------------------
+// GIT HELPERS
+// ------------------------------------------------------------
 
 fn git_capture(repo: &str, args: &[&str]) -> Option<String> {
     let out = Command::new("git")
@@ -116,28 +115,28 @@ fn has_unstaged_changes(repo: &str) -> bool {
     matches!(st, Ok(s) if s.code() == Some(1))
 }
 
-fn branch_ahead_of_upstream(repo: &str) -> bool {
-    let out = git_capture(
-        repo,
-        &["rev-list", "--left-right", "--count", "@{u}...HEAD"],
-    )
-    .unwrap_or_default();
+// Is HEAD ahead of any remote branch with the same branch name.
+// (Matches refs/remotes/<remote>/<branch> for any <remote>.)
+fn branch_ahead_of_any_remote_same_branch(repo: &str) -> bool {
+    let branch = match git_capture(repo, &["rev-parse", "--abbrev-ref", "HEAD"]) {
+        Some(b) if b != "HEAD" => b,
+        _ => return false, // detached HEAD or error
+    };
 
-    let mut it = out.split_whitespace();
-    let _ = it.next();
-    it.next()
-        .and_then(|v| v.parse::<u32>().ok())
-        .unwrap_or(0)
-        > 0
+    let spec = format!("--remotes=*/{}", branch);
+    let out = git_capture(repo, &["rev-list", "--count", "HEAD", "--not", &spec])
+        .unwrap_or_default();
+
+    out.trim().parse::<u32>().unwrap_or(0) > 0
 }
 
-/* ------------------------------------------------------------ */
-/* BUILD OUTPUT LINE                                            */
-/* ------------------------------------------------------------ */
+// ------------------------------------------------------------
+// BUILD OUTPUT LINE
+// ------------------------------------------------------------
 
 fn build_line(repo: &str, long_mode: bool, cols: usize) -> Option<String> {
     let dirty = has_unstaged_changes(repo);
-    let ahead = branch_ahead_of_upstream(repo);
+    let ahead = branch_ahead_of_any_remote_same_branch(repo);
 
     if !dirty && !ahead {
         return None;
@@ -179,7 +178,6 @@ fn build_line(repo: &str, long_mode: bool, cols: usize) -> Option<String> {
         refs.extend(b.lines().map(|s| s.to_string()));
     }
 
-    // path padded to cols (default 50)
     let mut line = format!(
         "{:<width$} {}{}{} {}{}{} {} {}{}{} {}{}{}",
         repo,
@@ -243,9 +241,9 @@ fn build_line(repo: &str, long_mode: bool, cols: usize) -> Option<String> {
     Some(line)
 }
 
-/* ------------------------------------------------------------ */
-/* MAIN                                                         */
-/* ------------------------------------------------------------ */
+// ------------------------------------------------------------
+// MAIN
+// ------------------------------------------------------------
 
 fn main() {
     let mut long_mode = false;
@@ -268,30 +266,18 @@ fn main() {
     let repos: Vec<String> = stdin.lock().lines().flatten().collect();
 
     let cache = load_cache();
-    let (tx, rx) = channel::<CacheEntry>();
 
-    /* printer thread (single writer) */
+    // Send cache key + entry so the printer thread can persist cache correctly.
+    let (tx, rx) = channel::<(String, CacheEntry)>();
+
     let printer = thread::spawn(move || {
-        let mut new_cache: Cache = HashMap::new();
+        let mut new_cache = load_cache();
 
-        for entry in rx {
+        for (key, entry) in rx {
             println!("{}", entry.line);
-            // cache key is embedded in the entry.line? no; we store via separate channel? we’ll store in cache in main thread instead.
-            // To keep the printer simple, main thread updates cache (see below).
-            // This branch is unused here.
-            drop(&mut new_cache);
-        }
-    });
-
-    /* We update cache in main thread by collecting cache updates from workers (without blocking printing) */
-    let (ctx, crx) = channel::<(String, CacheEntry)>();
-
-    // Separate cache-updater thread (does not affect printing)
-    let cache_updater = thread::spawn(move || {
-        let mut new_cache = load_cache(); // start from existing cache
-        for (key, entry) in crx {
             new_cache.insert(key, entry);
         }
+
         save_cache(&new_cache);
     });
 
@@ -313,7 +299,7 @@ fn main() {
 
         if let Some(entry) = cache.get(&key) {
             if entry.head_mtime == head_mt && entry.index_mtime == index_mt {
-                let _ = tx.send(entry.clone());
+                let _ = tx.send((key, entry.clone()));
                 return;
             }
         }
@@ -329,12 +315,9 @@ fn main() {
             line,
         };
 
-        let _ = tx.send(entry.clone());
-        let _ = ctx.send((key, entry));
+        let _ = tx.send((key, entry));
     });
 
     drop(tx);
-    drop(ctx);
     let _ = printer.join();
-    let _ = cache_updater.join();
 }
