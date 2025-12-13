@@ -11,7 +11,7 @@ use std::time::SystemTime;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
-// ANSI colors (git-like)
+/* ANSI colors (git-like) */
 const C_CYAN: &str = "\x1b[36m";
 const C_YELLOW: &str = "\x1b[33m";
 const C_MAGENTA: &str = "\x1b[35m";
@@ -19,15 +19,15 @@ const C_GREEN: &str = "\x1b[32m";
 const C_RED: &str = "\x1b[31m";
 const C_RESET: &str = "\x1b[0m";
 
-// ------------------------------------------------------------
-// CACHE
-// ------------------------------------------------------------
+/* ------------------------------------------------------------ */
+/* CACHE                                                        */
+/* ------------------------------------------------------------ */
 
 #[derive(Clone, Serialize, Deserialize)]
 struct CacheEntry {
     head_mtime: u64,
     index_mtime: u64,
-    line: String, // full formatted stdout line
+    line: String,
 }
 
 type Cache = HashMap<String, CacheEntry>;
@@ -53,14 +53,13 @@ fn save_cache(cache: &Cache) {
     }
 }
 
-// Cache key includes output-shaping options so -l / -c changes don't reuse stale lines.
 fn cache_key(repo: &str, long_mode: bool, cols: usize) -> String {
     format!("{}|{}|{}", repo, if long_mode { 1 } else { 0 }, cols)
 }
 
-// ------------------------------------------------------------
-// FS HELPERS (NO GIT)
-// ------------------------------------------------------------
+/* ------------------------------------------------------------ */
+/* FS HELPERS                                                   */
+/* ------------------------------------------------------------ */
 
 fn mtime(path: &str) -> Option<u64> {
     fs::metadata(path)
@@ -84,9 +83,9 @@ fn is_git_repo(repo: &str) -> bool {
     fs::metadata(format!("{}/.git", repo)).is_ok()
 }
 
-// ------------------------------------------------------------
-// GIT HELPERS
-// ------------------------------------------------------------
+/* ------------------------------------------------------------ */
+/* GIT HELPERS                                                  */
+/* ------------------------------------------------------------ */
 
 fn git_capture(repo: &str, args: &[&str]) -> Option<String> {
     let out = Command::new("git")
@@ -115,24 +114,41 @@ fn has_unstaged_changes(repo: &str) -> bool {
     matches!(st, Ok(s) if s.code() == Some(1))
 }
 
-// Is HEAD ahead of any remote branch with the same branch name.
-// (Matches refs/remotes/<remote>/<branch> for any <remote>.)
+// Is HEAD ahead of any remote branch with the SAME branch name.
+// If no such remote branch exists, returns false.
 fn branch_ahead_of_any_remote_same_branch(repo: &str) -> bool {
     let branch = match git_capture(repo, &["rev-parse", "--abbrev-ref", "HEAD"]) {
         Some(b) if b != "HEAD" => b,
-        _ => return false, // detached HEAD or error
+        _ => return false,
     };
 
+    let refs = git_capture(
+        repo,
+        &[
+            "for-each-ref",
+            "--format=%(refname)",
+            &format!("refs/remotes/*/{}", branch),
+        ],
+    )
+    .unwrap_or_default();
+
+    if refs.trim().is_empty() {
+        return false;
+    }
+
     let spec = format!("--remotes=*/{}", branch);
-    let out = git_capture(repo, &["rev-list", "--count", "HEAD", "--not", &spec])
-        .unwrap_or_default();
+    let out = git_capture(
+        repo,
+        &["rev-list", "--count", "HEAD", "--not", &spec],
+    )
+    .unwrap_or_default();
 
     out.trim().parse::<u32>().unwrap_or(0) > 0
 }
 
-// ------------------------------------------------------------
-// BUILD OUTPUT LINE
-// ------------------------------------------------------------
+/* ------------------------------------------------------------ */
+/* BUILD OUTPUT LINE                                            */
+/* ------------------------------------------------------------ */
 
 fn build_line(repo: &str, long_mode: bool, cols: usize) -> Option<String> {
     let dirty = has_unstaged_changes(repo);
@@ -206,8 +222,7 @@ fn build_line(repo: &str, long_mode: bool, cols: usize) -> Option<String> {
             if m > 0 {
                 parts.push(format!(
                     "{}M{} {} file{}",
-                    C_RED,
-                    C_RESET,
+                    C_RED, C_RESET,
                     m,
                     if m == 1 { "" } else { "s" }
                 ));
@@ -215,8 +230,7 @@ fn build_line(repo: &str, long_mode: bool, cols: usize) -> Option<String> {
             if a > 0 {
                 parts.push(format!(
                     "{}A{} {} file{}",
-                    C_RED,
-                    C_RESET,
+                    C_RED, C_RESET,
                     a,
                     if a == 1 { "" } else { "s" }
                 ));
@@ -224,8 +238,7 @@ fn build_line(repo: &str, long_mode: bool, cols: usize) -> Option<String> {
             if u > 0 {
                 parts.push(format!(
                     "{}??{} {} file{}",
-                    C_RED,
-                    C_RESET,
+                    C_RED, C_RESET,
                     u,
                     if u == 1 { "" } else { "s" }
                 ));
@@ -241,9 +254,9 @@ fn build_line(repo: &str, long_mode: bool, cols: usize) -> Option<String> {
     Some(line)
 }
 
-// ------------------------------------------------------------
-// MAIN
-// ------------------------------------------------------------
+/* ------------------------------------------------------------ */
+/* MAIN                                                         */
+/* ------------------------------------------------------------ */
 
 fn main() {
     let mut long_mode = false;
@@ -266,18 +279,14 @@ fn main() {
     let repos: Vec<String> = stdin.lock().lines().flatten().collect();
 
     let cache = load_cache();
-
-    // Send cache key + entry so the printer thread can persist cache correctly.
     let (tx, rx) = channel::<(String, CacheEntry)>();
 
     let printer = thread::spawn(move || {
         let mut new_cache = load_cache();
-
         for (key, entry) in rx {
             println!("{}", entry.line);
             new_cache.insert(key, entry);
         }
-
         save_cache(&new_cache);
     });
 
