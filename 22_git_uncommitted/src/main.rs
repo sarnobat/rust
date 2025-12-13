@@ -296,6 +296,7 @@ fn build_line(repo: &str, long_mode: bool, cols: usize) -> Option<String> {
 /* =============================== MAIN =============================== */
 
 fn main() {
+    // Parse CLI flags
     let mut long_mode = false;
     let mut cols: usize = 50;
     let mut use_cache = true;
@@ -317,6 +318,7 @@ fn main() {
 
     let (tx, rx) = channel::<(String, CacheEntry)>();
 
+    // Spawn printer thread to emit lines and store cache when enabled
     let printer = thread::spawn(move || {
         if !use_cache {
             for (_, entry) in rx {
@@ -333,8 +335,11 @@ fn main() {
         save_cache(&new_cache);
     });
 
+    // Read all repo paths from stdin
     let stdin = io::stdin();
     let repos: Vec<String> = stdin.lock().lines().flatten().collect();
+
+    // Process repos in parallel
     repos.par_iter().for_each(|repo| {
         if !is_git_repo(repo) {
             return;
