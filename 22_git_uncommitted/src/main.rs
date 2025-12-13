@@ -114,8 +114,12 @@ fn has_unstaged_changes(repo: &str) -> bool {
     matches!(st, Ok(s) if s.code() == Some(1))
 }
 
-// Is HEAD ahead of any remote branch with the SAME branch name.
-// If no such remote branch exists, returns false.
+/*
+ * Correct "ahead" logic:
+ * HEAD is ahead of a remote branch iff:
+ *   merge-base(HEAD, remote) == remote
+ *   AND HEAD != remote
+ */
 fn branch_ahead_of_any_remote_same_branch(repo: &str) -> bool {
     let branch = match git_capture(repo, &["rev-parse", "--abbrev-ref", "HEAD"]) {
         Some(b) if b != "HEAD" => b,
@@ -132,18 +136,19 @@ fn branch_ahead_of_any_remote_same_branch(repo: &str) -> bool {
     )
     .unwrap_or_default();
 
-    if refs.trim().is_empty() {
-        return false;
+    for remote_ref in refs.lines() {
+        let base = git_capture(repo, &["merge-base", "HEAD", remote_ref]);
+        let remote_oid = git_capture(repo, &["rev-parse", remote_ref]);
+        let head_oid = git_capture(repo, &["rev-parse", "HEAD"]);
+
+        if let (Some(base), Some(remote), Some(head)) = (base, remote_oid, head_oid) {
+            if base == remote && head != remote {
+                return true;
+            }
+        }
     }
 
-    let spec = format!("--remotes=*/{}", branch);
-    let out = git_capture(
-        repo,
-        &["rev-list", "--count", "HEAD", "--not", &spec],
-    )
-    .unwrap_or_default();
-
-    out.trim().parse::<u32>().unwrap_or(0) > 0
+    false
 }
 
 /* ------------------------------------------------------------ */
