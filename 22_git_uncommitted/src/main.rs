@@ -295,6 +295,24 @@ fn build_line(repo: &str, long_mode: bool, cols: usize) -> Option<String> {
 
 
 fn branch_ahead_of_any_remote_same_branch(repo: &str) -> bool {
+    let head_oid = match git_capture(repo, &["rev-parse", "HEAD"]) {
+        Some(h) => h,
+        None => return false,
+    };
+
+    if let Some(upstream_ref) =
+        git_capture(repo, &["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"])
+    {
+        if let (Some(upstream_oid), Some(base)) = (
+            git_capture(repo, &["rev-parse", &upstream_ref]),
+            git_capture(repo, &["merge-base", "HEAD", &upstream_ref]),
+        ) {
+            return base == upstream_oid && head_oid != upstream_oid;
+        }
+
+        return false;
+    }
+
     let branch = match git_capture(repo, &["rev-parse", "--abbrev-ref", "HEAD"]) {
         Some(b) if b != "HEAD" => b,
         _ => return false,
@@ -312,11 +330,10 @@ fn branch_ahead_of_any_remote_same_branch(repo: &str) -> bool {
 
     for r in remotes.lines() {
         let base = git_capture(repo, &["merge-base", "HEAD", r]);
-        let head = git_capture(repo, &["rev-parse", "HEAD"]);
         let remote = git_capture(repo, &["rev-parse", r]);
 
-        if let (Some(b), Some(h), Some(ro)) = (base, head, remote) {
-            if b == ro && h != ro {
+        if let (Some(b), Some(ro)) = (base, remote) {
+            if b == ro && head_oid != ro {
                 return true;
             }
         }
