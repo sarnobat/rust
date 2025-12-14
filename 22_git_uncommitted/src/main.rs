@@ -59,59 +59,72 @@ fn main() {
         }
     }
 
-    let (tx, rx) = channel::<(String, CacheEntry)>();
+    let (transmitter, receiver) = channel::<(String, CacheEntry)>();
 
+    //
+    //
     // Spawn printer thread to emit lines and store cache when enabled
+    //
+    //
     let printer = thread::spawn(move || {
         if !use_cache {
-            for (_, entry) in rx {
+            for (_, entry) in receiver {
                 println!("{}", entry.line);
             }
             return;
         }
 
         let mut new_cache = load_cache();
-        for (key, entry) in rx {
+        for (key, entry) in receiver {
             println!("{}", entry.line);
             new_cache.insert(key, entry);
         }
         save_cache(&new_cache);
     });
 
-    // Read all repo paths from stdin
+    // Read all repo paths from stdin  (the lock borrows `stdin` until `collect` completes)
     let stdin = io::stdin();
     let repos: Vec<String> = stdin.lock().lines().flatten().collect();
 
+    //
+    //
     // Process repos in parallel
+    //
+    //
     repos.par_iter().for_each(|repo| {
+
         if !is_git_repo(repo) {
+            // just a regular file or dir (it doesn't contain .git/)
             return;
         }
 
-        
-
         {
-            let now = now_secs();
-            let head_mt = match head_mtime(repo) {
+            // Modification time of .git/HEAD, used to detect branch changes
+            let head_mt: u64 = match head_mtime(repo) {
                 Some(v) => v,
                 None => return,
             };
-            let index_mt = match index_mtime(repo) {
+            // Modification time of .git/index, used to detect staged changes
+            let index_mt: u64 = match index_mtime(repo) {
                 Some(v) => v,
                 None => return,
             };
 
-            let key = cache_key(repo, long_mode, cols);
+            // Example: "/path/to/repo|1|80" => repo path, long-mode flag, column width
+            let key: String = cache_key(repo, long_mode, cols);
             if use_cache {
                 let cache = if use_cache {
+                    // Load persisted cache entries from /tmp/git-uncommitted/cache.json
                     load_cache()
                 } else {
                     HashMap::new()
                 };
                 if let Some(entry) = cache.get(&key) {
-                    let fresh = now.saturating_sub(entry.saved_at) <= CACHE_TTL_SECS;
+                    // Ensure entry is recent enough before trusting mtimes
+                    let fresh = now_secs().saturating_sub(entry.saved_at) <= CACHE_TTL_SECS;
+                    // Cached entry is still valid; reuse the line instead of rebuilding
                     if fresh && entry.head_mtime == head_mt && entry.index_mtime == index_mt {
-                        let _ = tx.send((key, entry.clone()));
+                        let _ = transmitter.send((key, entry.clone()));
                         return;
                     }
                 }
@@ -120,8 +133,12 @@ fn main() {
             
             {
                 //
-                // Main part: build the output line
                 //
+                // Main part: build the output line
+                // (e.g. (long mode): "/repo/path  abc1234 2025-12-12 Commit msg (main)")
+                //
+                //
+                
                 let line = match build_line(repo, long_mode, cols) {
                     Some(v) => v,
                     None => return,
@@ -130,19 +147,20 @@ fn main() {
                 // send the entry to the printer thread (it will get cached)
                 {
                     let entry = CacheEntry {
-                        head_mtime: head_mt,
-                        index_mtime: index_mt,
-                        line,
-                        saved_at: now,
+                        head_mtime: head_mt,    // .git/HEAD mtime when we computed the line
+                        index_mtime: index_mt,  // .git/index mtime at the same moment
+                        line,                   // rendered status line for this repo
+                        saved_at: now_secs(),   // timestamp used for TTL comparison
                     };
 
-                    let _ = tx.send((key, entry));
+                    let _ = transmitter.send((key, entry));
                 }
             }
         }
     });
 
-    drop(tx);
+    // Close the channel so the printer thread can exit once workers finish
+    drop(transmitter);
     let _ = printer.join();
 }
 
@@ -313,12 +331,12 @@ fn branch_ahead_of_any_remote_same_branch(repo: &str) -> bool {
         return false;
     }
 
-    let branch = match git_capture(repo, &["rev-parse", "--abbrev-ref", "HEAD"]) {
+    let branch: String = match git_capture(repo, &["rev-parse", "--abbrev-ref", "HEAD"]) {
         Some(b) if b != "HEAD" => b,
         _ => return false,
     };
 
-    let remotes = git_capture(
+    let remotes: String = git_capture(
         repo,
         &[
             "for-each-ref",
