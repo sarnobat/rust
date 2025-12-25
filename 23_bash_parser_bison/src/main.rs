@@ -86,11 +86,16 @@ fn cron_lexer() -> impl Parser<char, Vec<Token>, Error = Simple<char>> {
             .delimited_by(just('\''), just('\'')),
     ));
 
-    let non_ws = filter(|c: &char| !c.is_whitespace());
-    let non_ws_no_slash = filter(|c: &char| !c.is_whitespace() && *c != '/');
-    let rel_first_char = filter(|c: &char| !c.is_whitespace() && *c != '/' && *c != '*');
+    let non_ws = filter(|c: &char| !c.is_whitespace() && *c != ';');
+    let non_ws_no_slash =
+        filter(|c: &char| !c.is_whitespace() && *c != '/' && *c != ';');
+    let rel_first_char = filter(|c: &char| {
+        !c.is_whitespace() && *c != '/' && *c != '*' && *c != ';'
+    });
     let abs_first_char =
-        filter(|c: &char| !c.is_whitespace() && *c != '/' && !c.is_ascii_digit());
+        filter(|c: &char| {
+            !c.is_whitespace() && *c != '/' && *c != ';' && !c.is_ascii_digit()
+        });
 
     let tilde_path = just('~')
         .then(non_ws.repeated())
