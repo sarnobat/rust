@@ -1,5 +1,7 @@
+run:	build
+	crontab -l | target/debug/croncheck
 
-all: 
-	cargo build && crontab -l | target/debug/croncheck 2>(tee /tmp/out.err)
-	//cat /tmp/out.err
+build: 
+	cargo build && ln -sf target/debug/croncheck
+	#cat /tmp/out.err
 	ls /tmp/out.err
