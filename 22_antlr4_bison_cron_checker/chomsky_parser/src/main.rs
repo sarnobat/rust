@@ -11,8 +11,11 @@ enum Token {
     MonthName(String),
     DowName(String),
     Int(i64),
+    HttpUrl(String),
+    SshUrl(String),
     Url(String),
     Path(String),
+    StringLiteral(String),
     CliOption(String),
     Program(String),
 }
@@ -50,29 +53,29 @@ fn cron_lexer() -> impl Parser<char, Vec<Token>, Error = Simple<char>> {
         Token::Int(value)
     });
 
-    let scheme = choice((
-        just("http").to("http"),
-        just("https").to("https"),
-        just("ftp").to("ftp"),
-        just("ssh").to("ssh"),
-    ));
-
     let url_tail = none_of(" \t\r\n#")
         .repeated()
         .at_least(1)
         .collect::<String>();
 
-    let url = scheme
-        .then_ignore(just("://"))
-        .then(url_tail)
-        .map(|(scheme, rest)| Token::Url(format!("{scheme}://{rest}")));
+    let http_url = choice((just("https://"), just("http://")))
+        .then(url_tail.clone())
+        .map(|(prefix, rest)| Token::HttpUrl(format!("{prefix}{rest}")));
+
+    let ssh_url = just("ssh://")
+        .then(url_tail.clone())
+        .map(|(prefix, rest)| Token::SshUrl(format!("{prefix}{rest}")));
+
+    let other_url = just("ftp://")
+        .then(url_tail.clone())
+        .map(|(prefix, rest)| Token::Url(format!("{prefix}{rest}")));
 
     let escaped_char = just('\\').ignore_then(any());
 
     let dq_inner = choice((escaped_char.clone(), none_of("\\\"\r\n")));
     let sq_inner = choice((escaped_char.clone(), none_of("\\'\r\n")));
 
-    let quoted_path = choice((
+    let quoted_string = choice((
         dq_inner
             .repeated()
             .collect::<String>()
@@ -81,8 +84,7 @@ fn cron_lexer() -> impl Parser<char, Vec<Token>, Error = Simple<char>> {
             .repeated()
             .collect::<String>()
             .delimited_by(just('\''), just('\'')),
-    ))
-    .map(Token::Path);
+    ));
 
     let non_ws = filter(|c: &char| !c.is_whitespace());
     let non_ws_no_slash = filter(|c: &char| !c.is_whitespace() && *c != '/');
@@ -143,7 +145,8 @@ fn cron_lexer() -> impl Parser<char, Vec<Token>, Error = Simple<char>> {
             Token::Path(s)
         });
 
-    let path = choice((quoted_path, tilde_path, abs_path, rel_path));
+    let path = choice((tilde_path, abs_path, rel_path));
+    let string_literal = quoted_string.map(Token::StringLiteral);
 
     let opt_char = filter(|c: &char| c.is_ascii_alphanumeric() || matches!(c, '-' | '_'));
     let long_opt = just::<char, &str, Simple<char>>("--")
@@ -165,7 +168,10 @@ fn cron_lexer() -> impl Parser<char, Vec<Token>, Error = Simple<char>> {
         .map(Token::Program);
 
     let token = choice((
-        url,
+        http_url,
+        ssh_url,
+        other_url,
+        string_literal,
         path,
         long_opt,
         just('*').to(Token::Star),
@@ -203,8 +209,11 @@ fn token_label(token: &Token) -> &'static str {
         Token::MonthName(_) => "MONTH",
         Token::DowName(_) => "DOW",
         Token::Int(_) => "INT",
+        Token::HttpUrl(_) => "HTTP",
+        Token::SshUrl(_) => "SSH",
         Token::Url(_) => "URL",
         Token::Path(_) => "PATH",
+        Token::StringLiteral(_) => "STRING",
         Token::CliOption(_) => "OPTION",
         Token::Program(_) => "PROGRAM",
     }
