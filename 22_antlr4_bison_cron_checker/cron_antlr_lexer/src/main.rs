@@ -1,5 +1,6 @@
 use std::env;
 use std::path::Path;
+use std::io::{self, Read};
 
 #[cfg(has_antlr)]
 use antlr4_rust::common_token_stream::CommonTokenStream;
@@ -17,12 +18,17 @@ mod antlr {
 use antlr::cronlexer::{CronLexer, CronLexerTokenType};
 
 fn main() {
-    let args: Vec<String> = env::args().collect();
-    let input = if args.len() > 1 {
-        args[1..].join(" ")
-    } else {
-        "0 12 * * MON-FRI echo \"hello world\" > /tmp/test".to_string()
-    };
+    // Read all input from stdin
+    let mut input = String::new();
+    if let Err(e) = io::stdin().read_to_string(&mut input) {
+        eprintln!("Failed to read stdin: {}", e);
+        std::process::exit(1);
+    }
+
+    // If stdin is empty, do nothing
+    if input.is_empty() {
+        return;
+    }
 
     run_with_antlr_or_fallback(input);
 }
@@ -41,6 +47,10 @@ fn run_with_antlr_or_fallback(input: String) {
         let tt = t.get_token_type() as isize;
         let name = CronLexerTokenType::to_string(tt);
         let text = t.get_text().unwrap_or_default();
+        if text.trim_start().starts_with('#') {
+            // comment token: skip entirely (no stdout or stderr)
+            continue;
+        }
         println!("{:<12} {:?}", name, text);
         check_and_report(&text);
     }
@@ -51,6 +61,10 @@ fn run_with_antlr_or_fallback(input: String) {
     // Fallback: tokenizer that treats anything between single or double
     // quotes as a single token (supports backslash escapes inside quotes).
     for token in tokenize_preserving_quotes(&input) {
+        if token.trim_start().starts_with('#') {
+            // comment token: skip entirely (no stdout or stderr)
+            continue;
+        }
         println!("{}", token);
         check_and_report(&token);
     }
@@ -103,6 +117,11 @@ fn tokenize_preserving_quotes(s: &str) -> Vec<String> {
 }
 
 fn check_and_report(token: &str) {
+    if token.trim_start().starts_with('#') {
+        // comment — nothing to report
+        return;
+    }
+
     if token.contains('/') {
         let path = Path::new(token);
         if path.exists() {
