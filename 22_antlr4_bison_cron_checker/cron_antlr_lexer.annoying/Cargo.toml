@@ -1,0 +1,10 @@
+[package]
+name = "croncheck"
+version = "0.1.0"
+edition = "2021"
+build = "build.rs"
+
+[dependencies]
+colored = "2.0"
+antlr4-rust = { git = "https://github.com/rrevenantt/antlr4rust", rev = "091e50badbc12d18298ff95c1b08e4f50f9bd035" }
+antlr4rust = "0.5.2"
