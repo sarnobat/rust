@@ -50,7 +50,12 @@ fn run_with_antlr_or_fallback(input: String) {
             // comment token: skip entirely (no stdout or stderr)
             continue;
         }
-        eprintln!("{:<12} {:?}", name, text);
+        let is_arg = text.trim_start().starts_with('-');
+        if is_arg {
+            eprintln!("{:<12} {:?}", "CLI_ARG", text);
+        } else {
+            eprintln!("{:<12} {:?}", name, text);
+        }
         check_and_report(&text);
     }
 }
@@ -64,7 +69,13 @@ fn run_with_antlr_or_fallback(input: String) {
             // comment token: skip entirely (no stdout or stderr)
             continue;
         }
-        eprintln!("{}", token);
+        let t = token.as_str();
+        let is_arg = !quoted && t.trim_start().starts_with('-');
+        if is_arg {
+            eprintln!("{:<12} {:?}", "CLI_ARG", t);
+        } else {
+            eprintln!("{:<12} {:?}", "TOKEN", t);
+        }
         check_and_report(&token);
     }
 }
