@@ -99,10 +99,10 @@ fn cron_lexer() -> impl Parser<char, Vec<Token>, Error = Simple<char>> {
         });
 
     let abs_path = just('/')
-        .then(non_ws.repeated().at_least(1))
+        .then(non_ws_no_slash.repeated().at_least(1))
         .then(
             just('/')
-                .then(non_ws.repeated())
+                .then(non_ws_no_slash.repeated())
                 .repeated(),
         )
         .map(|((first_slash, first_segment), tail)| {
@@ -125,7 +125,7 @@ fn cron_lexer() -> impl Parser<char, Vec<Token>, Error = Simple<char>> {
         .at_least(1)
         .then(
             just('/')
-                .then(non_ws.repeated())
+                .then(non_ws_no_slash.repeated())
                 .repeated()
                 .at_least(1),
         )
@@ -165,16 +165,16 @@ fn cron_lexer() -> impl Parser<char, Vec<Token>, Error = Simple<char>> {
         .map(Token::Program);
 
     let token = choice((
+        url,
+        path,
+        long_opt,
         just('*').to(Token::Star),
         just('/').to(Token::Slash),
         just(',').to(Token::Comma),
-        long_opt,
         just('-').to(Token::Dash),
         month,
         dow,
         int,
-        url,
-        path,
         program,
     ))
     .boxed();
