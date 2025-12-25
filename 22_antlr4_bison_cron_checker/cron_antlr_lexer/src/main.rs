@@ -57,7 +57,6 @@ fn run_with_antlr_or_fallback(input: String) {
         } else {
             (raw, false)
         };
-        }
     }
 }
 
