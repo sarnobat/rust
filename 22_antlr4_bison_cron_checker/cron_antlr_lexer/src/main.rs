@@ -52,11 +52,20 @@ fn run_with_antlr_or_fallback(input: String) {
             continue;
         }
         let raw = text.as_str();
-        let (t, had_semicolon) = if !raw.is_empty() && raw.ends_with(';') {
-            (raw.trim_end_matches(';'), true)
-        } else {
-            (raw, false)
-        };
+            let (t, had_semicolon) = if !raw.is_empty() && raw.ends_with(';') {
+                (raw.trim_end_matches(';'), true)
+            } else {
+                (raw, false)
+            };
+            let label = "[TOKEN]".bright_magenta().bold();
+            eprintln!(
+                "{:<7} {:>10}:{:<5} {:>32} {}",
+                label,
+                file!().bright_cyan(),
+                line!().to_string().green(),
+                t.yellow(),
+                "main()".yellow()
+            );
     }
 }
 
@@ -70,11 +79,20 @@ fn run_with_antlr_or_fallback(input: String) {
             continue;
         }
         let raw = token.as_str();
-        let (t, had_semicolon) = if !quoted && !raw.is_empty() && raw.ends_with(';') {
-            (raw.trim_end_matches(';'), true)
-        } else {
-            (raw, false)
-        };
+            let (t, had_semicolon) = if !quoted && !raw.is_empty() && raw.ends_with(';') {
+                (raw.trim_end_matches(';'), true)
+            } else {
+                (raw, false)
+            };
+            let label = "[TOKEN]".bright_magenta().bold();
+            eprintln!(
+                "{:<7} {:>10}:{:<5} {:>32} {}",
+                label,
+                file!().bright_cyan(),
+                line!().to_string().green(),
+                t.yellow(),
+                "main()".yellow()
+            );
     }
 }
 
