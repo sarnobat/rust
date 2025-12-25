@@ -129,12 +129,41 @@ fn tokenize_preserving_quotes(s: &str) -> Vec<(String, bool)> {
 }
 
 fn check_and_report(token: &str) {
-    if token.contains('/') {
-        let path = Path::new(token);
+    let t = token.trim_start();
+
+    // Treat tokens starting with `~` as file paths; expand using $HOME
+    if t.starts_with('~') {
+        match std::env::var("HOME") {
+            Ok(home) => {
+                let expanded = if t == "~" {
+                    home.clone()
+                } else if t.starts_with("~/") {
+                    format!("{}/{}", home, &t[2..])
+                } else {
+                    // ~username not supported; fall back to raw token
+                    t.to_string()
+                };
+                let path = Path::new(&expanded);
+                if path.exists() {
+                    eprintln!("[trace] File exists: {} -> {}", token, expanded);
+                } else {
+                    eprintln!("[error] File not found: {} -> {}", token, expanded);
+                }
+                return;
+            }
+            Err(_) => {
+                eprintln!("[error] Cannot expand '~' (HOME not set): {}", token);
+                return;
+            }
+        }
+    }
+
+    if t.contains('/') {
+        let path = Path::new(t);
         if path.exists() {
             eprintln!("[trace] File exists: {}", token);
         } else {
-            println!("[error] File not found: {}", token);
+            eprintln!("[error] File not found: {}", token);
         }
     } else {
         eprintln!("[trace] Not a file: {}", token);
