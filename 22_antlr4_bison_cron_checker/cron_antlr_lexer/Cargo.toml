@@ -1,0 +1,7 @@
+[package]
+name = "cron_antlr_lexer"
+version = "0.1.0"
+edition = "2021"
+# No build script required for this minimal example
+
+[dependencies]
