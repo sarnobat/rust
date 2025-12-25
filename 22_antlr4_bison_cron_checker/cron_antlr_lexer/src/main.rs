@@ -50,9 +50,13 @@ fn run_with_antlr_or_fallback(input: String) {
             // comment token: skip entirely (no stdout or stderr)
             continue;
         }
-        let is_arg = text.trim_start().starts_with('-');
+        let t = text.as_str();
+        let is_arg = t.trim_start().starts_with('-');
+        let is_path = t.starts_with('~') || t.contains('/');
         if is_arg {
-            eprintln!("{:<12} {:?}", "CLI_ARG", text);
+            eprintln!("{:<12} {:?}", "CLI_ARG", t);
+        } else if is_path {
+            eprintln!("{:<12} {:?}", "PATH", t);
         } else {
             eprintln!("{:<12} {:?}", name, text);
         }
@@ -71,8 +75,11 @@ fn run_with_antlr_or_fallback(input: String) {
         }
         let t = token.as_str();
         let is_arg = !quoted && t.trim_start().starts_with('-');
+        let is_path = t.starts_with('~') || t.contains('/');
         if is_arg {
             eprintln!("{:<12} {:?}", "CLI_ARG", t);
+        } else if is_path {
+            eprintln!("{:<12} {:?}", "PATH", t);
         } else {
             eprintln!("{:<12} {:?}", "TOKEN", t);
         }
@@ -158,7 +165,7 @@ fn check_and_report(token: &str) {
                 if path.exists() {
                     eprintln!("[trace] File exists: {} -> {}", token, expanded);
                 } else {
-                    eprintln!("[error] File not found: {} -> {}", token, expanded);
+                    println!("[error] File not found: {} -> {}", token, expanded);
                 }
                 return;
             }
