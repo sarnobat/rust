@@ -1,5 +1,5 @@
 use chumsky::prelude::*;
-use std::env;
+use std::io::{self, Read};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum Token {
@@ -194,16 +194,21 @@ fn cron_lexer() -> impl Parser<char, Vec<Token>, Error = Simple<char>> {
 }
 
 fn main() {
-    let source = match env::args().skip(1).collect::<Vec<_>>() {
-        args if args.is_empty() => "0 12 * * MON-FRI /usr/bin/env backup --full".to_string(),
-        args => args.join(" "),
-    };
+    let mut buffer = String::new();
+    if io::stdin().read_to_string(&mut buffer).is_err() {
+        eprintln!("Failed to read stdin");
+        std::process::exit(1);
+    }
+    let source = buffer.trim();
+    if source.is_empty() {
+        eprintln!("Provide cron text via stdin");
+        std::process::exit(1);
+    }
 
-    match cron_lexer().parse(source.as_str()) {
+    match cron_lexer().parse(source) {
         Ok(tokens) => {
-            println!("Input: {source}");
-            for (idx, token) in tokens.iter().enumerate() {
-                println!("{idx:02}: {token:?}");
+            for token in tokens {
+                eprintln!("{token:?}");
             }
         }
         Err(errors) => {
