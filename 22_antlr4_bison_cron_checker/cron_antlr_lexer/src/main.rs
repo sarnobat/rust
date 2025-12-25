@@ -1,4 +1,5 @@
 use std::env;
+use std::path::Path;
 
 #[cfg(has_antlr)]
 use antlr4_rust::common_token_stream::CommonTokenStream;
@@ -39,7 +40,9 @@ fn run_with_antlr_or_fallback(input: String) {
         }
         let tt = t.get_token_type() as isize;
         let name = CronLexerTokenType::to_string(tt);
-        println!("{:<12} {:?}", name, t.get_text().unwrap_or_default());
+        let text = t.get_text().unwrap_or_default();
+        println!("{:<12} {:?}", name, text);
+        check_and_report(&text);
     }
 }
 
@@ -49,6 +52,7 @@ fn run_with_antlr_or_fallback(input: String) {
     // quotes as a single token (supports backslash escapes inside quotes).
     for token in tokenize_preserving_quotes(&input) {
         println!("{}", token);
+        check_and_report(&token);
     }
 }
 
@@ -96,4 +100,17 @@ fn tokenize_preserving_quotes(s: &str) -> Vec<String> {
         tokens.push(cur);
     }
     tokens
+}
+
+fn check_and_report(token: &str) {
+    if token.contains('/') {
+        let path = Path::new(token);
+        if path.exists() {
+            eprintln!("File exists: {}", token);
+        } else {
+            eprintln!("File not found: {}", token);
+        }
+    } else {
+        eprintln!("Not a file: {}", token);
+    }
 }
