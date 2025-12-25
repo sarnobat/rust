@@ -51,19 +51,32 @@ fn run_with_antlr_or_fallback(input: String) {
             // comment token: skip entirely (no stdout or stderr)
             continue;
         }
-        let t = text.as_str();
-        let t = text.as_str();
+        let raw = text.as_str();
+        let (t, had_semicolon) = if !raw.is_empty() && raw.ends_with(';') {
+            (raw.trim_end_matches(';'), true)
+        } else {
+            (raw, false)
+        };
         let is_uncreated = t.contains('`');
+        let is_url = t.starts_with("http:") || t.starts_with("https:") || t.starts_with("ssh:");
         let is_arg = t.trim_start().starts_with('-');
         let is_path = t.starts_with('~') || t.contains('/');
-        if is_uncreated {
+            if is_uncreated {
             let label = "[PATH_UNCREATED]".bright_magenta().bold();
             println!("{:<20} {:>10}:{:<5} {:<}",
                      label,
                      file!().bright_cyan(),
                      line!().to_string().green(),
-                     t.yellow());
+                         t.yellow());
             // skip filesystem checks for uncreated paths
+        } else if is_url {
+            let label = "[URL]".bright_magenta().bold();
+            println!("{:<20} {:>10}:{:<5} {:<}",
+                     label,
+                     file!().bright_cyan(),
+                     line!().to_string().green(),
+                     t.yellow());
+            // skip filesystem checks for URLs
         } else if is_arg {
             let label = "[CLI_ARG]".bright_magenta().bold();
             println!("{:<20} {:>10}:{:<5} {:<}",
@@ -80,14 +93,22 @@ fn run_with_antlr_or_fallback(input: String) {
                      line!().to_string().green(),
                      t.yellow());
             check_and_report(&text);
-        } else {
+            } else {
             let label = format!("[{}]", name).bright_magenta().bold();
             println!("{:<20} {:>10}:{:<5} {:<}",
                      label,
                      file!().bright_cyan(),
                      line!().to_string().green(),
-                     t.yellow());
-            check_and_report(&text);
+                         t.yellow());
+            check_and_report(t);
+            if had_semicolon {
+                let semi_label = "[TOKEN]".bright_magenta().bold();
+                println!("{:<20} {:>10}:{:<5} {:<}",
+                         semi_label,
+                         file!().bright_cyan(),
+                         line!().to_string().green(),
+                         ";".yellow());
+            }
         }
     }
 }
@@ -101,10 +122,17 @@ fn run_with_antlr_or_fallback(input: String) {
             // comment token: skip entirely (no stdout or stderr)
             continue;
         }
-        let t = token.as_str();
+        let raw = token.as_str();
+        let (t, had_semicolon) = if !quoted && !raw.is_empty() && raw.ends_with(';') {
+            (raw.trim_end_matches(';'), true)
+        } else {
+            (raw, false)
+        };
         let is_uncreated = t.contains('`');
+        let is_url = t.starts_with("http:") || t.starts_with("https:") || t.starts_with("ssh:");
         let is_arg = !quoted && t.trim_start().starts_with('-');
         let is_path = t.starts_with('~') || t.contains('/');
+
         if is_uncreated {
             let label = "[PATH_UNCREATED]".bright_magenta().bold();
             println!("{:<20} {:>10}:{:<5} {:<}",
@@ -113,6 +141,14 @@ fn run_with_antlr_or_fallback(input: String) {
                      line!().to_string().green(),
                      t.yellow());
             // skip filesystem checks for uncreated paths
+        } else if is_url {
+            let label = "[URL]".bright_magenta().bold();
+            println!("{:<20} {:>10}:{:<5} {:<}",
+                     label,
+                     file!().bright_cyan(),
+                     line!().to_string().green(),
+                     t.yellow());
+            // skip filesystem checks for URLs
         } else if is_arg {
             let label = "[CLI_ARG]".bright_magenta().bold();
             println!("{:<20} {:>10}:{:<5} {:<}",
@@ -128,7 +164,15 @@ fn run_with_antlr_or_fallback(input: String) {
                      file!().bright_cyan(),
                      line!().to_string().green(),
                      t.yellow());
-            check_and_report(&token);
+            check_and_report(t);
+            if had_semicolon {
+                let semi_label = "[TOKEN]".bright_magenta().bold();
+                println!("{:<20} {:>10}:{:<5} {:<}",
+                         semi_label,
+                         file!().bright_cyan(),
+                         line!().to_string().green(),
+                         ";".yellow());
+            }
         } else {
             let label = "[TOKEN]".bright_magenta().bold();
             println!("{:<20} {:>10}:{:<5} {:<}",
@@ -136,7 +180,15 @@ fn run_with_antlr_or_fallback(input: String) {
                      file!().bright_cyan(),
                      line!().to_string().green(),
                      t.yellow());
-            check_and_report(&token);
+            check_and_report(t);
+            if had_semicolon {
+                let semi_label = "[TOKEN]".bright_magenta().bold();
+                println!("{:<20} {:>10}:{:<5} {:<}",
+                         semi_label,
+                         file!().bright_cyan(),
+                         line!().to_string().green(),
+                         ";".yellow());
+            }
         }
     }
 }
@@ -201,40 +253,45 @@ fn tokenize_preserving_quotes(s: &str) -> Vec<(String, bool)> {
 }
 
 fn check_and_report(token: &str) {
-    let t = token.trim_start();
+    let t = token;
 
-    // If token contains backtick, it's a PATH_UNCREATED and we skip any filesystem checks
+    // Skip checks for uncreated paths or URLs
     if t.contains('`') {
+        eprintln!("{:<12} {:?}", "PATH_UNCREATED", t);
+        return;
+    }
+    if t.starts_with("http:") || t.starts_with("https:") || t.starts_with("ssh:") {
+        eprintln!("{:<12} {:?}", "URL", t);
         return;
     }
 
-    // Treat tokens starting with `~` as file paths; expand using $HOME
+    // CLI args
+    if t.trim_start().starts_with('-') {
+        eprintln!("{:<12} {:?}", "CLI_ARG", t);
+        return;
+    }
+
+    // Tilde expansion
     if t.starts_with('~') {
         match std::env::var("HOME") {
             Ok(home) => {
-                let expanded = if t == "~" {
-                    home.clone()
-                } else if t.starts_with("~/") {
-                    format!("{}/{}", home, &t[2..])
-                } else {
-                    // ~username not supported; fall back to raw token
-                    t.to_string()
-                };
+                let without_tilde = t.trim_start_matches('~');
+                let expanded = format!("{}{}", home, without_tilde);
                 let path = Path::new(&expanded);
                 if path.exists() {
                     eprintln!("[trace] File exists: {} -> {}", token, expanded);
                 } else {
                     eprintln!("[error] File not found: {} -> {}", token, expanded);
                 }
-                return;
             }
             Err(_) => {
                 eprintln!("[error] Cannot expand '~' (HOME not set): {}", token);
-                return;
             }
         }
+        return;
     }
 
+    // Paths containing a slash
     if t.contains('/') {
         let path = Path::new(t);
         if path.exists() {
@@ -242,7 +299,9 @@ fn check_and_report(token: &str) {
         } else {
             eprintln!("[error] File not found: {}", token);
         }
-    } else {
-        eprintln!("[trace] Not a file: {}", token);
+        return;
     }
+
+    // Otherwise, not a file
+    eprintln!("[trace] Not a file: {}", token);
 }
