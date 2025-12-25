@@ -20,11 +20,16 @@ DOW_NAMEa
 
 INT : [0-9]+ ;
 
+URL
+    : ('http' | 'https' | 'ftp' | 'ssh') '://' ~[ \t\r\n#]+
+    ;
+
 // PATH tokens: quoted paths, tilde-expanded paths, absolute or relative paths
 PATH
     : QUOTED_PATH
     | TILDE_PATH
-    | ABS_OR_REL_PATH
+    | ABS_PATH
+    | REL_PATH
     ;
 
 fragment QUOTED_PATH
@@ -36,8 +41,21 @@ fragment TILDE_PATH
     : '~' ~[ \t\r\n]*
     ;
 
-fragment ABS_OR_REL_PATH
+fragment ABS_PATH
+    : '/' (~[ \t\r\n/])+ ('/' ~[ \t\r\n/]*)*
+    ;
+
+fragment REL_PATH
     : (~[ \t\r\n/])+ ('/' ~[ \t\r\n/]*)+
     ;
 
-COMMAND : ~[\r\n]* ;
+CLI_OPTION
+    : '--' [a-zA-Z0-9][a-zA-Z0-9_-]*
+    | '-' [a-zA-Z][a-zA-Z0-9_-]*
+    ;
+
+// PROGRAM is intentionally last so it acts as a fallback token for any
+// remaining command text that wasn't captured by other rules.
+PROGRAM
+    : (~[ \t\r\n#/])+
+    ;

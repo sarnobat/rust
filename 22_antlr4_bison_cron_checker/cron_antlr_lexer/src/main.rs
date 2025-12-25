@@ -22,6 +22,9 @@ const MONTH_NAMES: [&str; 12] = [
 const DOW_NAMES: [&str; 7] = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 
 #[cfg(not(has_antlr))]
+const MIN_CRON_FIELDS: usize = 5;
+
+#[cfg(not(has_antlr))]
 fn run_with_antlr_or_fallback(input: String) {
     for line in input.lines() {
         lex_line(line.trim_end_matches('\r'));
@@ -35,6 +38,7 @@ fn lex_line(line: &str) {
         return;
     }
 
+    let command_start = find_command_start(line);
     let mut idx = 0;
     while idx < line.len() {
         let rest = &line[idx..];
@@ -50,6 +54,36 @@ fn lex_line(line: &str) {
         }
 
         if ch == '#' {
+            break;
+        }
+
+        let in_command = command_start.map(|start| idx >= start).unwrap_or(false);
+        if in_command {
+            if let Some(consumed) = match_url(rest) {
+                emit_fallback_token("URL", &rest[..consumed]);
+                idx += consumed;
+                continue;
+            }
+
+            if let Some(consumed) = match_cli_option(rest) {
+                emit_fallback_token("CLI_OPTION", &rest[..consumed]);
+                idx += consumed;
+                continue;
+            }
+
+            if let Some(consumed) = match_path(rest) {
+                emit_fallback_token("PATH", &rest[..consumed]);
+                idx += consumed;
+                continue;
+            }
+
+            if let Some(consumed) = match_program(rest) {
+                emit_fallback_token("PROGRAM", &rest[..consumed]);
+                idx += consumed;
+                continue;
+            }
+
+            emit_fallback_token("INVALID_COMMAND", rest);
             break;
         }
 
@@ -71,13 +105,7 @@ fn lex_line(line: &str) {
             continue;
         }
 
-        if let Some(consumed) = match_path(rest) {
-            emit_fallback_token("PATH", &rest[..consumed]);
-            idx += consumed;
-            continue;
-        }
-
-        emit_fallback_token("COMMAND", rest);
+        emit_fallback_token("INVALID_FIELD", rest);
         break;
     }
 }
@@ -152,16 +180,23 @@ fn match_path(input: &str) -> Option<usize> {
     }
 
     if first == '~' {
-        return Some(take_until_whitespace(input));
+        return Some(take_until_boundary(input));
     }
 
-    let len = take_until_whitespace(input);
+    let len = take_until_boundary(input);
     if len == 0 {
         return None;
     }
 
     let segment = &input[..len];
-    if segment.contains('/') {
+    if segment.starts_with('/') {
+        // absolute paths require at least one non-slash character after the leading slash
+        if segment[1..].chars().next().map(|c| c != '/').unwrap_or(false) {
+            Some(len)
+        } else {
+            None
+        }
+    } else if segment.contains('/') {
         Some(len)
     } else {
         None
@@ -191,14 +226,77 @@ fn consume_quoted_path(input: &str, quote: char) -> Option<usize> {
 }
 
 #[cfg(not(has_antlr))]
-fn take_until_whitespace(input: &str) -> usize {
+fn take_until_boundary(input: &str) -> usize {
     for (offset, c) in input.char_indices() {
-        if c.is_whitespace() {
+        if c.is_whitespace() || c == '#' {
             return offset;
         }
     }
 
     input.len()
+}
+
+#[cfg(not(has_antlr))]
+fn match_url(input: &str) -> Option<usize> {
+    const PREFIXES: [&str; 4] = ["http://", "https://", "ftp://", "ssh://"];
+    for prefix in PREFIXES {
+        if input.len() >= prefix.len() && input[..prefix.len()].eq_ignore_ascii_case(prefix) {
+            let consumed = take_until_boundary(input);
+            if consumed == 0 {
+                continue;
+            }
+            return Some(consumed);
+        }
+    }
+
+    None
+}
+
+#[cfg(not(has_antlr))]
+fn match_cli_option(input: &str) -> Option<usize> {
+    let mut chars = input.chars();
+    let first = chars.next()?;
+    if first != '-' {
+        return None;
+    }
+    let second = chars.next()?;
+
+    if second == '-' {
+        if let Some(third) = chars.next() {
+            if !third.is_ascii_alphanumeric() {
+                return None;
+            }
+        } else {
+            return None;
+        }
+    } else if !second.is_ascii_alphabetic() {
+        return None;
+    }
+
+    let consumed = take_until_boundary(input);
+    if consumed == 0 { None } else { Some(consumed) }
+}
+
+#[cfg(not(has_antlr))]
+fn match_program(input: &str) -> Option<usize> {
+    let mut end = 0;
+    for (offset, c) in input.char_indices() {
+        if c.is_whitespace() || c == '#' {
+            break;
+        }
+
+        if c == '/' {
+            return None;
+        }
+
+        end = offset + c.len_utf8();
+
+        if c == ';' {
+            break;
+        }
+    }
+
+    if end == 0 { None } else { Some(end) }
 }
 
 #[cfg(not(has_antlr))]
@@ -222,6 +320,42 @@ fn emit_fallback_token(token_name: &str, text: &str) {
         trimmed.yellow(),
         "main()".yellow()
     );
+}
+
+#[cfg(not(has_antlr))]
+fn find_command_start(line: &str) -> Option<usize> {
+    let mut idx = 0;
+    let mut fields = 0;
+    let len = line.len();
+
+    while idx < len {
+        let rest = &line[idx..];
+        let ch = match rest.chars().next() {
+            Some(c) => c,
+            None => break,
+        };
+
+        if ch.is_whitespace() {
+            idx += ch.len_utf8();
+            continue;
+        }
+
+        fields += 1;
+        if fields > MIN_CRON_FIELDS {
+            return Some(idx);
+        }
+
+        idx += ch.len_utf8();
+        while idx < len {
+            let rest = &line[idx..];
+            match rest.chars().next() {
+                Some(c) if !c.is_whitespace() => idx += c.len_utf8(),
+                _ => break,
+            }
+        }
+    }
+
+    None
 }
 
 #[cfg(has_antlr)]
