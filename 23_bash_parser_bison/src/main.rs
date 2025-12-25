@@ -18,6 +18,8 @@ enum Token {
     StringLiteral(String),
     CliOption(String),
     Program(String),
+    Variable(String),
+    Equals,
 }
 
 fn cron_lexer() -> impl Parser<char, Vec<Token>, Error = Simple<char>> {
@@ -169,6 +171,23 @@ fn cron_lexer() -> impl Parser<char, Vec<Token>, Error = Simple<char>> {
 
     let path = choice((tilde_path, abs_path, rel_path));
     let string_literal = quoted_string.map(Token::StringLiteral);
+    let identifier = filter(|c: &char| c.is_ascii_alphabetic() || *c == '_')
+        .then(
+            filter(|c: &char| c.is_ascii_alphanumeric() || *c == '_')
+                .repeated(),
+        )
+        .map(|(first, rest)| {
+            let mut s = String::new();
+            s.push(first);
+            for c in rest {
+                s.push(c);
+            }
+            s
+        });
+    let variable = identifier
+        .clone()
+        .then_ignore(just('=').rewind())
+        .map(Token::Variable);
 
     let opt_char = filter(|c: &char| c.is_ascii_alphanumeric() || matches!(c, '-' | '_'));
     let long_opt = just::<char, &str, Simple<char>>("--")
@@ -195,7 +214,9 @@ fn cron_lexer() -> impl Parser<char, Vec<Token>, Error = Simple<char>> {
         other_url,
         string_literal,
         path,
+        variable,
         long_opt,
+        just('=').to(Token::Equals),
         just('*').to(Token::Star),
         just('/').to(Token::Slash),
         just(',').to(Token::Comma),
@@ -238,6 +259,8 @@ fn token_label(token: &Token) -> &'static str {
         Token::StringLiteral(_) => "STRING",
         Token::CliOption(_) => "OPTION",
         Token::Program(_) => "PROGRAM",
+        Token::Variable(_) => "VARIABLE",
+        Token::Equals => "EQUALS",
     }
 }
 
@@ -287,6 +310,7 @@ fn main() {
             for path in paths {
                 let skip_exists_check = path.contains('`') 
                     || path.contains(':')
+                    || path.contains('=')
                     || path.contains('*');
                 if skip_exists_check {
                     continue;
