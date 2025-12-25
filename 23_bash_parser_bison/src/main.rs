@@ -280,7 +280,8 @@ fn main() {
             }
 
             for path in paths {
-                if ignore_existing && Path::new(&path).exists() {
+                let contains_backtick = path.contains('`');
+                if !contains_backtick && ignore_existing && Path::new(&path).exists() {
                     continue;
                 }
                 println!("{path}");
