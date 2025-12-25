@@ -57,58 +57,6 @@ fn run_with_antlr_or_fallback(input: String) {
         } else {
             (raw, false)
         };
-        let is_uncreated = t.contains('`');
-        let is_url = t.starts_with("http:") || t.starts_with("https:") || t.starts_with("ssh:");
-        let is_arg = t.trim_start().starts_with('-');
-        let is_path = t.starts_with('~') || t.contains('/');
-            if is_uncreated {
-            let label = "[PATH_UNCREATED]".bright_magenta().bold();
-            println!("{:<20} {:>10}:{:<5} {:<}",
-                     label,
-                     file!().bright_cyan(),
-                     line!().to_string().green(),
-                         t.yellow());
-            // skip filesystem checks for uncreated paths
-        } else if is_url {
-            let label = "[URL]".bright_magenta().bold();
-            println!("{:<20} {:>10}:{:<5} {:<}",
-                     label,
-                     file!().bright_cyan(),
-                     line!().to_string().green(),
-                     t.yellow());
-            // skip filesystem checks for URLs
-        } else if is_arg {
-            let label = "[CLI_ARG]".bright_magenta().bold();
-            println!("{:<20} {:>10}:{:<5} {:<}",
-                     label,
-                     file!().bright_cyan(),
-                     line!().to_string().green(),
-                     t.yellow());
-            check_and_report(&text);
-        } else if is_path {
-            let label = "[PATH]".bright_magenta().bold();
-            println!("{:<20} {:>10}:{:<5} {:<}",
-                     label,
-                     file!().bright_cyan(),
-                     line!().to_string().green(),
-                     t.yellow());
-            check_and_report(&text);
-            } else {
-            let label = format!("[{}]", name).bright_magenta().bold();
-            println!("{:<20} {:>10}:{:<5} {:<}",
-                     label,
-                     file!().bright_cyan(),
-                     line!().to_string().green(),
-                         t.yellow());
-            check_and_report(t);
-            if had_semicolon {
-                let semi_label = "[TOKEN]".bright_magenta().bold();
-                println!("{:<20} {:>10}:{:<5} {:<}",
-                         semi_label,
-                         file!().bright_cyan(),
-                         line!().to_string().green(),
-                         ";".yellow());
-            }
         }
     }
 }
@@ -132,6 +80,25 @@ fn run_with_antlr_or_fallback(input: String) {
         let is_url = t.starts_with("http:") || t.starts_with("https:") || t.starts_with("ssh:");
         let is_arg = !quoted && t.trim_start().starts_with('-');
         let is_path = t.starts_with('~') || t.contains('/');
+
+        // Treat a standalone asterisk as CRON_DIGIT
+        if !quoted && t.trim() == "*" {
+            let label = "[CRON_DIGIT]".bright_magenta().bold();
+            println!("{:<20} {:>10}:{:<5} {:<}",
+                     label,
+                     file!().bright_cyan(),
+                     line!().to_string().green(),
+                     t.yellow());
+            if had_semicolon {
+                let semi_label = "[TOKEN]".bright_magenta().bold();
+                println!("{:<20} {:>10}:{:<5} {:<}",
+                         semi_label,
+                         file!().bright_cyan(),
+                         line!().to_string().green(),
+                         ";".yellow());
+            }
+            continue;
+        }
 
         if is_uncreated {
             let label = "[PATH_UNCREATED]".bright_magenta().bold();
