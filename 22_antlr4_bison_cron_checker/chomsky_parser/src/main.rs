@@ -88,6 +88,9 @@ fn cron_lexer() -> impl Parser<char, Vec<Token>, Error = Simple<char>> {
 
     let non_ws = filter(|c: &char| !c.is_whitespace());
     let non_ws_no_slash = filter(|c: &char| !c.is_whitespace() && *c != '/');
+    let rel_first_char = filter(|c: &char| !c.is_whitespace() && *c != '/' && *c != '*');
+    let abs_first_char =
+        filter(|c: &char| !c.is_whitespace() && *c != '/' && !c.is_ascii_digit());
 
     let tilde_path = just('~')
         .then(non_ws.repeated())
@@ -101,7 +104,16 @@ fn cron_lexer() -> impl Parser<char, Vec<Token>, Error = Simple<char>> {
         });
 
     let abs_path = just('/')
-        .then(non_ws_no_slash.repeated().at_least(1))
+        .then(
+            abs_first_char
+                .then(non_ws_no_slash.repeated())
+                .map(|(head, rest)| {
+                    let mut segment = Vec::new();
+                    segment.push(head);
+                    segment.extend(rest);
+                    segment
+                }),
+        )
         .then(
             just('/')
                 .then(non_ws_no_slash.repeated())
@@ -122,9 +134,14 @@ fn cron_lexer() -> impl Parser<char, Vec<Token>, Error = Simple<char>> {
             Token::Path(s)
         });
 
-    let rel_path = non_ws_no_slash
-        .repeated()
-        .at_least(1)
+    let rel_path = rel_first_char
+        .then(non_ws_no_slash.repeated())
+        .map(|(head, rest)| {
+            let mut segment = Vec::new();
+            segment.push(head);
+            segment.extend(rest);
+            segment
+        })
         .then(
             just('/')
                 .then(non_ws_no_slash.repeated())
@@ -233,7 +250,13 @@ fn main() {
 
     match cron_lexer().parse(source) {
         Ok(tokens) => {
+            let mut paths = Vec::new();
+
             for token in tokens {
+                if let Token::Path(ref p) = token {
+                    paths.push(p.clone());
+                }
+
                 let tt_label = token_label(&token);
                 let t = format!("{token:?}");
                 eprintln!(
@@ -244,6 +267,10 @@ fn main() {
                     t.yellow(),
                     "main()".yellow()
                 );
+            }
+
+            for path in paths {
+                println!("{path}");
             }
         }
         Err(errors) => {
