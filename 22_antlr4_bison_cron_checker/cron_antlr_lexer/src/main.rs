@@ -125,11 +125,11 @@ fn check_and_report(token: &str) {
     if token.contains('/') {
         let path = Path::new(token);
         if path.exists() {
-            eprintln!("File exists: {}", token);
+            eprintln!("[trace] File exists: {}", token);
         } else {
-            eprintln!("File not found: {}", token);
+            eprintln!("[error] File not found: {}", token);
         }
     } else {
-        eprintln!("Not a file: {}", token);
+        eprintln!("[trace] Not a file: {}", token);
     }
 }
