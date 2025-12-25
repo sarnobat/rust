@@ -280,10 +280,18 @@ fn main() {
             }
 
             for path in paths {
-                let contains_backtick = path.contains('`');
-                if !contains_backtick && ignore_existing && Path::new(&path).exists() {
+                let skip_exists_check = path.contains('`') 
+                    || path.contains(':')
+                    || path.contains('*');
+                if skip_exists_check {
                     continue;
                 }
+                if Path::new(&path).exists() {
+                    if ignore_existing {
+                        continue;
+                    }
+                }
+
                 println!("{path}");
             }
         }
