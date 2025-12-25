@@ -1,6 +1,9 @@
 use std::path::Path;
 
 fn main() {
+    // Tell cargo/rustc about the custom cfg so check-cfg won't warn.
+    println!("cargo:rustc-check-cfg=cfg(has_antlr)");
+
     // If pre-generated ANTLR sources exist in `src/antlr`, enable a cfg
     // so the crate can compile using the generated lexer. Otherwise
     // fall back to a simple tokenizer at runtime.

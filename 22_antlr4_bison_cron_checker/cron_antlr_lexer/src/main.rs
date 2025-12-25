@@ -1,4 +1,3 @@
-use std::env;
 use std::path::Path;
 use std::io::{self, Read};
 
@@ -76,6 +75,20 @@ fn tokenize_preserving_quotes(s: &str) -> Vec<(String, bool)> {
     let mut chars = s.chars().peekable();
 
     while let Some(c) = chars.next() {
+        // If a comment starts at token boundary (# up to newline), capture it as single token
+        if c == '#' && cur.is_empty() {
+            let mut comment = String::new();
+            comment.push('#');
+            while let Some(ch) = chars.next() {
+                if ch == '\n' {
+                    break;
+                }
+                comment.push(ch);
+            }
+            tokens.push((comment, false));
+            continue;
+        }
+
         if c.is_whitespace() {
             if !cur.is_empty() {
                 tokens.push((cur.clone(), false));
