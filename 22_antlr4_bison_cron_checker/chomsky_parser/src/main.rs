@@ -1,6 +1,6 @@
 use chumsky::prelude::*;
 use colored::Colorize;
-use std::io::{self, Read};
+use std::{env, io::{self, Read}, path::Path};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum Token {
@@ -237,6 +237,16 @@ fn token_label(token: &Token) -> &'static str {
 }
 
 fn main() {
+    let mut ignore_existing = false;
+    for arg in env::args().skip(1) {
+        if arg == "--ignore-existing" {
+            ignore_existing = true;
+        } else {
+            eprintln!("Unknown argument: {arg}");
+            std::process::exit(2);
+        }
+    }
+
     let mut buffer = String::new();
     if io::stdin().read_to_string(&mut buffer).is_err() {
         eprintln!("Failed to read stdin");
@@ -270,6 +280,9 @@ fn main() {
             }
 
             for path in paths {
+                if ignore_existing && Path::new(&path).exists() {
+                    continue;
+                }
                 println!("{path}");
             }
         }
