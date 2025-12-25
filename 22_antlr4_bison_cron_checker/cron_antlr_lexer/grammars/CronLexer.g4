@@ -14,7 +14,7 @@ MONTH_NAME
     | 'JUL' | 'AUG' | 'SEP' | 'OCT' | 'NOV' | 'DEC'
     ;
 
-DOW_NAME
+DOW_NAMEa 
     : 'SUN' | 'MON' | 'TUE' | 'WED' | 'THU' | 'FRI' | 'SAT'
     ;
 

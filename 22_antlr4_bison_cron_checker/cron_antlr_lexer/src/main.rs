@@ -14,6 +14,12 @@ mod antlr {
     pub mod cronlexer;
 }
 
+#[cfg(not(has_antlr))]
+fn run_with_antlr_or_fallback(_input: String) {
+    eprintln!("ERROR: No generated ANTLR lexer found (src/antlr/cronlexer.rs).\nPlease generate the lexer from grammars/CronLexer.g4 or enable ANTLR build support and re-run the build.");
+    std::process::exit(2);
+}
+
 #[cfg(has_antlr)]
 use antlr::cronlexer::{CronLexer, CronLexerTokenType};
 
@@ -34,7 +40,7 @@ fn main() {
 }
 
 #[cfg(has_antlr)]
-fn run_with_antlr_impl(input: String) {
+fn run_with_antlr_or_fallback(input: String) {
     let input_stream = InputStream::new(input.as_str());
     let mut lexer = CronLexer::new(input_stream);
     let mut tokens = CommonTokenStream::new(&mut lexer);
@@ -66,44 +72,6 @@ fn run_with_antlr_impl(input: String) {
                 t.yellow(),
                 "main()".yellow()
             );
-    }
-}
-
-// Unconditional wrapper that calls the ANTLR implementation when available
-// or falls back to a simple whitespace tokenizer.
-fn run_with_antlr_or_fallback(input: String) {
-    #[cfg(has_antlr)]
-    {
-        run_with_antlr_impl(input);
-        return;
-    }
-    #[cfg(not(has_antlr))]
-    {
-        // Simple fallback: split on whitespace and print token lines to stderr
-        for raw in input.split_whitespace() {
-            let t = raw.trim_end_matches(';');
-            let label = "[TOKEN]".bright_magenta().bold();
-            eprintln!(
-                "{:<7} {:>10}:{:<5} {:>32} {}",
-                label,
-                file!().bright_cyan(),
-                line!().to_string().green(),
-                t.yellow(),
-                "main()".yellow()
-            );
-            // print semicolon token if present
-            if raw.ends_with(';') {
-                let semi = "[TOKEN]".bright_magenta().bold();
-                eprintln!(
-                    "{:<7} {:>10}:{:<5} {:>32} {}",
-                    semi,
-                    file!().bright_cyan(),
-                    line!().to_string().green(),
-                    ";".yellow(),
-                    "main()".yellow()
-                );
-            }
-        }
     }
 }
 
