@@ -51,7 +51,7 @@ fn run_with_antlr_or_fallback(input: String) {
             // comment token: skip entirely (no stdout or stderr)
             continue;
         }
-        println!("{:<12} {:?}", name, text);
+        eprintln!("{:<12} {:?}", name, text);
         check_and_report(&text);
     }
 }
@@ -60,17 +60,17 @@ fn run_with_antlr_or_fallback(input: String) {
 fn run_with_antlr_or_fallback(input: String) {
     // Fallback: tokenizer that treats anything between single or double
     // quotes as a single token (supports backslash escapes inside quotes).
-    for token in tokenize_preserving_quotes(&input) {
-        if token.trim_start().starts_with('#') {
+    for (token, quoted) in tokenize_preserving_quotes(&input) {
+        if !quoted && token.trim_start().starts_with('#') {
             // comment token: skip entirely (no stdout or stderr)
             continue;
         }
-        println!("{}", token);
+        eprintln!("{}", token);
         check_and_report(&token);
     }
 }
 
-fn tokenize_preserving_quotes(s: &str) -> Vec<String> {
+fn tokenize_preserving_quotes(s: &str) -> Vec<(String, bool)> {
     let mut tokens = Vec::new();
     let mut cur = String::new();
     let mut chars = s.chars().peekable();
@@ -78,31 +78,30 @@ fn tokenize_preserving_quotes(s: &str) -> Vec<String> {
     while let Some(c) = chars.next() {
         if c.is_whitespace() {
             if !cur.is_empty() {
-                tokens.push(cur.clone());
+                tokens.push((cur.clone(), false));
                 cur.clear();
             }
             continue;
         }
 
         if c == '"' || c == '\'' {
-            // start of quoted token; include the opening quote
+            // start of quoted token; collect inner content, handle escapes
             let quote = c;
-            cur.push(quote);
+            let mut inner = String::new();
             while let Some(ch) = chars.next() {
-                cur.push(ch);
                 if ch == '\\' {
-                    // escape next char if present
                     if let Some(esc) = chars.next() {
-                        cur.push(esc);
+                        // interpret common escapes (keep literal for simplicity)
+                        inner.push(esc);
                     }
                     continue;
                 }
                 if ch == quote {
                     break;
                 }
+                inner.push(ch);
             }
-            tokens.push(cur.clone());
-            cur.clear();
+            tokens.push((inner, true));
             continue;
         }
 
@@ -111,23 +110,18 @@ fn tokenize_preserving_quotes(s: &str) -> Vec<String> {
     }
 
     if !cur.is_empty() {
-        tokens.push(cur);
+        tokens.push((cur, false));
     }
     tokens
 }
 
 fn check_and_report(token: &str) {
-    if token.trim_start().starts_with('#') {
-        // comment — nothing to report
-        return;
-    }
-
     if token.contains('/') {
         let path = Path::new(token);
         if path.exists() {
             eprintln!("[trace] File exists: {}", token);
         } else {
-            eprintln!("[error] File not found: {}", token);
+            println!("[error] File not found: {}", token);
         }
     } else {
         eprintln!("[trace] Not a file: {}", token);
