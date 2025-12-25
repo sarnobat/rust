@@ -1,5 +1,6 @@
 use std::path::Path;
 use std::io::{self, Read};
+use colored::Colorize;
 
 #[cfg(has_antlr)]
 use antlr4_rust::common_token_stream::CommonTokenStream;
@@ -51,16 +52,43 @@ fn run_with_antlr_or_fallback(input: String) {
             continue;
         }
         let t = text.as_str();
+        let t = text.as_str();
+        let is_uncreated = t.contains('`');
         let is_arg = t.trim_start().starts_with('-');
         let is_path = t.starts_with('~') || t.contains('/');
-        if is_arg {
-            eprintln!("{:<12} {:?}", "CLI_ARG", t);
+        if is_uncreated {
+            let label = "[PATH_UNCREATED]".bright_magenta().bold();
+            println!("{:<20} {:>10}:{:<5} {:<}",
+                     label,
+                     file!().bright_cyan(),
+                     line!().to_string().green(),
+                     t.yellow());
+            // skip filesystem checks for uncreated paths
+        } else if is_arg {
+            let label = "[CLI_ARG]".bright_magenta().bold();
+            println!("{:<20} {:>10}:{:<5} {:<}",
+                     label,
+                     file!().bright_cyan(),
+                     line!().to_string().green(),
+                     t.yellow());
+            check_and_report(&text);
         } else if is_path {
-            eprintln!("{:<12} {:?}", "PATH", t);
+            let label = "[PATH]".bright_magenta().bold();
+            println!("{:<20} {:>10}:{:<5} {:<}",
+                     label,
+                     file!().bright_cyan(),
+                     line!().to_string().green(),
+                     t.yellow());
+            check_and_report(&text);
         } else {
-            eprintln!("{:<12} {:?}", name, text);
+            let label = format!("[{}]", name).bright_magenta().bold();
+            println!("{:<20} {:>10}:{:<5} {:<}",
+                     label,
+                     file!().bright_cyan(),
+                     line!().to_string().green(),
+                     t.yellow());
+            check_and_report(&text);
         }
-        check_and_report(&text);
     }
 }
 
@@ -74,16 +102,42 @@ fn run_with_antlr_or_fallback(input: String) {
             continue;
         }
         let t = token.as_str();
+        let is_uncreated = t.contains('`');
         let is_arg = !quoted && t.trim_start().starts_with('-');
         let is_path = t.starts_with('~') || t.contains('/');
-        if is_arg {
-            eprintln!("{:<12} {:?}", "CLI_ARG", t);
+        if is_uncreated {
+            let label = "[PATH_UNCREATED]".bright_magenta().bold();
+            println!("{:<20} {:>10}:{:<5} {:<}",
+                     label,
+                     file!().bright_cyan(),
+                     line!().to_string().green(),
+                     t.yellow());
+            // skip filesystem checks for uncreated paths
+        } else if is_arg {
+            let label = "[CLI_ARG]".bright_magenta().bold();
+            println!("{:<20} {:>10}:{:<5} {:<}",
+                     label,
+                     file!().bright_cyan(),
+                     line!().to_string().green(),
+                     t.yellow());
+            check_and_report(&token);
         } else if is_path {
-            eprintln!("{:<12} {:?}", "PATH", t);
+            let label = "[PATH]".bright_magenta().bold();
+            println!("{:<20} {:>10}:{:<5} {:<}",
+                     label,
+                     file!().bright_cyan(),
+                     line!().to_string().green(),
+                     t.yellow());
+            check_and_report(&token);
         } else {
-            eprintln!("{:<12} {:?}", "TOKEN", t);
+            let label = "[TOKEN]".bright_magenta().bold();
+            println!("{:<20} {:>10}:{:<5} {:<}",
+                     label,
+                     file!().bright_cyan(),
+                     line!().to_string().green(),
+                     t.yellow());
+            check_and_report(&token);
         }
-        check_and_report(&token);
     }
 }
 
@@ -149,6 +203,11 @@ fn tokenize_preserving_quotes(s: &str) -> Vec<(String, bool)> {
 fn check_and_report(token: &str) {
     let t = token.trim_start();
 
+    // If token contains backtick, it's a PATH_UNCREATED and we skip any filesystem checks
+    if t.contains('`') {
+        return;
+    }
+
     // Treat tokens starting with `~` as file paths; expand using $HOME
     if t.starts_with('~') {
         match std::env::var("HOME") {
@@ -165,7 +224,7 @@ fn check_and_report(token: &str) {
                 if path.exists() {
                     eprintln!("[trace] File exists: {} -> {}", token, expanded);
                 } else {
-                    println!("[error] File not found: {} -> {}", token, expanded);
+                    eprintln!("[error] File not found: {} -> {}", token, expanded);
                 }
                 return;
             }
