@@ -1,4 +1,5 @@
 use chumsky::prelude::*;
+use colored::Colorize;
 use std::io::{self, Read};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -193,6 +194,22 @@ fn cron_lexer() -> impl Parser<char, Vec<Token>, Error = Simple<char>> {
         .then_ignore(end())
 }
 
+fn token_label(token: &Token) -> &'static str {
+    match token {
+        Token::Star => "STAR",
+        Token::Slash => "SLASH",
+        Token::Comma => "COMMA",
+        Token::Dash => "DASH",
+        Token::MonthName(_) => "MONTH",
+        Token::DowName(_) => "DOW",
+        Token::Int(_) => "INT",
+        Token::Url(_) => "URL",
+        Token::Path(_) => "PATH",
+        Token::CliOption(_) => "OPTION",
+        Token::Program(_) => "PROGRAM",
+    }
+}
+
 fn main() {
     let mut buffer = String::new();
     if io::stdin().read_to_string(&mut buffer).is_err() {
@@ -208,7 +225,16 @@ fn main() {
     match cron_lexer().parse(source) {
         Ok(tokens) => {
             for token in tokens {
-                eprintln!("{token:?}");
+                let tt_label = token_label(&token);
+                let t = format!("{token:?}");
+                eprintln!(
+                    "{:<7} {:>10}:{:<5} {:>32} {}",
+                    tt_label,
+                    file!().bright_cyan(),
+                    line!().to_string().green(),
+                    t.yellow(),
+                    "main()".yellow()
+                );
             }
         }
         Err(errors) => {
