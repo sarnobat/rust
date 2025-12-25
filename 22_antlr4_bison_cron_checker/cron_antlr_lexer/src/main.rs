@@ -45,8 +45,55 @@ fn run_with_antlr_or_fallback(input: String) {
 
 #[cfg(not(has_antlr))]
 fn run_with_antlr_or_fallback(input: String) {
-    // Fallback: simple whitespace tokenizer — prints each token on its own line
-    for token in input.split_whitespace() {
+    // Fallback: tokenizer that treats anything between single or double
+    // quotes as a single token (supports backslash escapes inside quotes).
+    for token in tokenize_preserving_quotes(&input) {
         println!("{}", token);
     }
+}
+
+fn tokenize_preserving_quotes(s: &str) -> Vec<String> {
+    let mut tokens = Vec::new();
+    let mut cur = String::new();
+    let mut chars = s.chars().peekable();
+
+    while let Some(c) = chars.next() {
+        if c.is_whitespace() {
+            if !cur.is_empty() {
+                tokens.push(cur.clone());
+                cur.clear();
+            }
+            continue;
+        }
+
+        if c == '"' || c == '\'' {
+            // start of quoted token; include the opening quote
+            let quote = c;
+            cur.push(quote);
+            while let Some(ch) = chars.next() {
+                cur.push(ch);
+                if ch == '\\' {
+                    // escape next char if present
+                    if let Some(esc) = chars.next() {
+                        cur.push(esc);
+                    }
+                    continue;
+                }
+                if ch == quote {
+                    break;
+                }
+            }
+            tokens.push(cur.clone());
+            cur.clear();
+            continue;
+        }
+
+        // normal unquoted char
+        cur.push(c);
+    }
+
+    if !cur.is_empty() {
+        tokens.push(cur);
+    }
+    tokens
 }
