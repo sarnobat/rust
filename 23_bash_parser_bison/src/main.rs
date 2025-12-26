@@ -22,6 +22,11 @@ enum Token {
     Equals,
 }
 
+//------------------------------------------------------------------------------
+// Lexer definition
+//------------------------------------------------------------------------------
+
+// (we don't need a parser for this program, just a stream of tokens)
 fn cron_lexer() -> impl Parser<char, Vec<Token>, Error = Simple<char>> {
     let month = choice((
         just("JAN").map(|_| Token::MonthName("JAN".to_string())),
@@ -264,7 +269,13 @@ fn token_label(token: &Token) -> &'static str {
     }
 }
 
+//------------------------------------------------------------------------------
+// Main program
+//------------------------------------------------------------------------------
 fn main() {
+    //
+    // Parse command-line arguments
+    //
     let mut ignore_existing = false;
     for arg in env::args().skip(1) {
         if arg == "--ignore-existing" {
@@ -274,6 +285,10 @@ fn main() {
             std::process::exit(2);
         }
     }
+
+    //
+    // Read input from stdin
+    //
 
     let mut buffer = String::new();
     if io::stdin().read_to_string(&mut buffer).is_err() {
@@ -286,10 +301,17 @@ fn main() {
         std::process::exit(1);
     }
 
+    //
+    // Parse the input source
+    //
+
     match cron_lexer().parse(source) {
         Ok(tokens) => {
             let mut paths = Vec::new();
 
+            //
+            // Debug output of all tokens
+            //
             for token in tokens {
                 if let Token::Path(ref p) = token {
                     paths.push(p.clone());
@@ -306,7 +328,9 @@ fn main() {
                     "main()".yellow()
                 );
             }
-
+            //
+            // Output paths, filtering existing ones if requested
+            //
             for path in paths {
                 let skip_exists_check = path.contains('`') 
                     || path.contains(':')
