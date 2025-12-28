@@ -1,12 +1,12 @@
+use once_cell::sync::Lazy;
+use regex::Regex;
 use std::io::{self, Read};
+
+static CHUNK_START_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^===\s").expect("valid chunk regex"));
 
 fn is_chunk_start(line: &str) -> bool {
     let trimmed = line.strip_suffix('\r').unwrap_or(line);
-    if !trimmed.starts_with("===") {
-        return false;
-    }
-
-    trimmed.chars().nth(3).map(|c| c.is_whitespace()).unwrap_or(false)
+    CHUNK_START_RE.is_match(trimmed)
 }
 
 fn main() -> io::Result<()> {
