@@ -16,6 +16,13 @@ fn main() -> io::Result<()> {
 
     let (prefix, mut chunks, suffix) = extract_sections(&input);
 
+    if !chunks.is_empty() && suffix.is_empty() {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "missing closing chunk delimiter",
+        ));
+    }
+
     if chunks.is_empty() {
         print!("{prefix}{suffix}");
         return Ok(());
