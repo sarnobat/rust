@@ -71,13 +71,16 @@ fn extract_sections(input: &str) -> (String, Vec<String>, String) {
     let prefix_end = chunk_starts[0];
     let prefix = input[..prefix_end].to_string();
 
-    let suffix_start = chunk_ranges.last().map(|(_, end)| *end).unwrap_or(input.len());
-    let suffix = input[suffix_start..].to_string();
-
-    let chunks = chunk_ranges
+    let mut chunks: Vec<_> = chunk_ranges
         .iter()
         .map(|&(start, end)| input[start..end].to_string())
         .collect();
+
+    if chunks.is_empty() {
+        return (prefix, Vec::new(), String::new());
+    }
+
+    let suffix = chunks.pop().unwrap();
 
     (prefix, chunks, suffix)
 }
