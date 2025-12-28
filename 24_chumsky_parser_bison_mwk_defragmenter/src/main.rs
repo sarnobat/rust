@@ -3,7 +3,7 @@ use regex::Regex;
 use std::io::{self, Read};
 
 static CHUNK_START_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^===\s").expect("valid chunk regex"));
-static HASH_SORT_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"\n#").expect("valid hash chunk regex"));
+static HASHTAGGED: Lazy<Regex> = Lazy::new(|| Regex::new(r"\n#").expect("valid hash chunk regex"));
 
 fn is_chunk_start(line: &str) -> bool {
     let trimmed = line.strip_suffix('\r').unwrap_or(line);
@@ -14,22 +14,31 @@ fn main() -> io::Result<()> {
     let mut input = String::new();
     io::stdin().read_to_string(&mut input)?;
 
+    //
+    // Collect the snippets into a list
+    //
     let (prefix, mut snippets, suffix) = extract_sections(&input);
 
+    // sanity check
     if !snippets.is_empty() && suffix.is_empty() {
         return Err(io::Error::new(
             io::ErrorKind::InvalidData,
-            "missing closing chunk delimiter",
+            "Nothing to defragment",
         ));
     }
 
     if snippets.is_empty() {
+        // no defragmentation needed
         print!("{prefix}{suffix}");
         return Ok(());
     }
 
-    snippets.sort_by_key(|snippet| !HASH_SORT_RE.is_match(snippet));
+    // sort snippets: hashtagged first
+    snippets.sort_by_key(|snippet| !HASHTAGGED.is_match(snippet));
 
+    //
+    // Finally, print the whole mwk file defragmented
+    //
     print!("{prefix}");
     for snippet in &snippets {
         print!("{snippet}");
