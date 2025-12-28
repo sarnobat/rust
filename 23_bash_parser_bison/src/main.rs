@@ -20,6 +20,8 @@ enum Token {
     Program(String),
     Variable(String),
     Equals,
+    Redirect(String),
+    Async,
 }
 
 //------------------------------------------------------------------------------
@@ -193,6 +195,25 @@ fn cron_lexer() -> impl Parser<char, Vec<Token>, Error = Simple<char>> {
         .clone()
         .then_ignore(just('=').rewind())
         .map(Token::Variable);
+    let redirect_with_fd = filter(|c: &char| c.is_ascii_digit())
+        .repeated()
+        .at_least(1)
+        .collect::<String>()
+        .then(
+            choice((
+                just(">>").to(">>".to_string()),
+                just(">").to(">".to_string()),
+            )),
+        )
+        .map(|(fd, op)| Token::Redirect(format!("{fd}{op}")))
+        .boxed();
+    let redirect_plain = choice((
+        just(">>").to(Token::Redirect(">>".to_string())),
+        just(">").to(Token::Redirect(">".to_string())),
+    ))
+    .boxed();
+    let redirect = choice((redirect_with_fd, redirect_plain));
+    let async_token = just('&').to(Token::Async);
 
     let opt_char = filter(|c: &char| c.is_ascii_alphanumeric() || matches!(c, '-' | '_'));
     let long_opt = just::<char, &str, Simple<char>>("--")
@@ -220,8 +241,10 @@ fn cron_lexer() -> impl Parser<char, Vec<Token>, Error = Simple<char>> {
         string_literal,
         path,
         variable,
+        redirect,
         long_opt,
         just('=').to(Token::Equals),
+        async_token,
         just('*').to(Token::Star),
         just('/').to(Token::Slash),
         just(',').to(Token::Comma),
@@ -266,6 +289,8 @@ fn token_label(token: &Token) -> &'static str {
         Token::Program(_) => "PROGRAM",
         Token::Variable(_) => "VARIABLE",
         Token::Equals => "EQUALS",
+        Token::Redirect(_) => "REDIRECT",
+        Token::Async => "ASYNC",
     }
 }
 
