@@ -2,7 +2,8 @@ use once_cell::sync::Lazy;
 use regex::Regex;
 use std::io::{self, Read};
 
-static CHUNK_START_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^===\s").expect("valid chunk regex"));
+static CHUNK_START_RE: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^===\s").expect("valid chunk regex"));
 static HASHTAGGED: Lazy<Regex> = Lazy::new(|| Regex::new(r"\n#").expect("valid hash chunk regex"));
 
 fn is_chunk_start(line: &str) -> bool {
@@ -49,7 +50,6 @@ fn main() -> io::Result<()> {
 }
 
 fn extract_sections(input: &str) -> (String, Vec<String>, String) {
-
     //
     // Find the starting line numbers for each snippet
     //
